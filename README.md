@@ -35,7 +35,7 @@ Tesseract needs a supported Windows or Mac computer. Your agent will check compa
 
 ## Review your edit
 
-Watch the video beside its picture and audio lanes. Zoom in, scrub to a moment, or loop a section. Copy feedback with the exact clip or time range for your agent.
+Pop out the video, resize the clip, add it to another screen. View clip and audio lanes. Zoom in, scrub to a moment, or loop a section. Copy feedback with the exact clip or time range for your agent.
 
 ![Madison reviewing an episode with video preview, audio waveform and multiple timeline lanes](images/viewer-demo.png)
 
