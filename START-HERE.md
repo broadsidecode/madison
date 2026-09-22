@@ -1,31 +1,49 @@
-# Set up Timeline Reviewer with Codex
+# Set up Madison with Tesseract
 
-![Timeline Reviewer workflow: bring a rendered video and timeline data, review the edit, and copy precise feedback for your agent.](images/timeline-reviewer-overview.png)
+This page is for the agent following the setup prompt on the [front page](README.md). Do the setup work for the user and keep the conversation simple.
 
-Open your downloaded or cloned repository folder in Codex, then paste the prompt below. It asks Codex to use the instructions and commands shipped with your version.
+## Ask two questions
 
-## Copy this setup prompt
+1. Would you like a demo, a review of an existing Tesseract project, or a new edit from your own footage?
+2. Where should the project and its review files live?
 
-```text
-Set up Timeline Reviewer from the repository currently open in this task.
+Infer answers already supplied. Inspect the operating system, architecture and installed tools yourself. Ask for a project or footage location only when needed. For a new edit, establish the desired result before making editorial changes.
 
-Read AGENTS.md, README.md, and the relevant setup documentation first. Inspect the actual entry points and command help when needed. Follow this checkout's instructions rather than guessing commands or using instructions from another version.
+## Prepare the tools
 
-Check my operating system and required local tools. Set up only the dependencies needed for the standalone viewer. Do not require Tesseract for basic viewing. Keep any virtual environment and generated demo or review files local to this checkout or a clearly named new output folder. Preserve existing files.
+* Work locally with filesystem and process access. If your host cannot do that, explain the limitation and help the user continue in a suitable local agent. Do not substitute a hosted rendering service.
+* Obtain https://github.com/broadsidecode/madison into a new folder, or use the user's existing checkout. Read AGENTS.md, command help and the [manual setup guide](docs/manual-setup.md). Preserve existing work. GitHub login is not required to download the public source archive.
+* Detect an installed Tesseract engine and any Tesseract skills or plugin. Reuse a suitable installation. Otherwise follow Mirage's [official repository](https://github.com/mirage-hq/Tesseract) and [installation guide](https://github.com/mirage-hq/Tesseract/blob/main/skills/tesseract-video/references/installation.md). Use the official skills for the agent when available. Do not assume a marketplace plugin is available on every host. Skills provide instructions; the CLI engine is installed separately.
+* Before downloading or installing Tesseract, present its [terms](https://github.com/mirage-hq/Tesseract/blob/main/TERMS.md) and let the user confirm agreement and eligibility. The terms include conditions for certain commercial businesses and commissioned work. Madison's MIT license does not replace those terms. Explain agent usage costs separately.
+* Match the CLI version to the pin shipped with the official instructions. Verify the official checksum, host and architecture before installing. Do not silently replace an existing mismatched engine or guess a compatible version. The optional CapCut adapter in this release requires Tesseract 0.1.0.
+* Tesseract supports macOS on Apple Silicon or Intel, and 64 bit Windows 10 or later on AMD64. Linux, WSL and cloud execution are not supported engine hosts. Madison alone can run on Linux if the user chooses that limited path.
+* Follow the host's normal permission flow. Let the user handle required system security approval; never bypass Gatekeeper, SmartScreen or organizational controls.
+* Check Python 3.10 or later for Madison. Install missing prerequisites through their official instructions. FFmpeg and ffprobe are optional for an existing review bundle but needed for movie preparation. Madison needs no runtime Python packages or Node.js. An optional skills installation method may have its own prerequisites.
 
-Start with the bundled synthetic demo. Launch the viewer on an available IPv4 loopback address, bound to 127.0.0.1, and give me the full local URL. Do not stop an unrelated service to obtain a port or expose the viewer to the network.
+## Prepare the review
 
-Verify that the timeline and video load. Exercise playback, seeking, zoom, the resizable divider, range marking, looping, and copied feedback. If browser inspection is available, inspect the rendered page. If it is unavailable, state that limitation and give me a short manual check instead of claiming those checks passed.
+Start the bundled synthetic demo to check Madison independently of the engine. Report viewer setup and engine setup separately. A working Madison demo does not prove that Tesseract is installed or can render.
 
-Leave the experimental CapCut to Tesseract importer disabled unless I ask to use it. If I do, read its documentation, check the separately installed tools and supported versions, inspect the selected saved timeline, and explain unsupported features before proceeding. Import into a new destination. Never alter the source CapCut project, enable a lossy conversion without my agreement, or imply that editable transfers work in both directions.
+For an existing Tesseract project, work from a copy and inspect its native editable data through the installed official CLI. For new footage, use the official Tesseract workflow after agreeing on the edit.
 
-Use only the demo and files I explicitly provide. Do not upload my media, publish anything, or commit generated review bundles.
+Madison does not open a .tsrct file directly. Prepare a rendered preview and matching lane metadata using the [bundle format](docs/manifest.md). Derive timing, source ranges, visibility and identities from the same native project revision as the render. Respect nested parent timing and retimes; do not present guessed timing as exact. Use the actual render duration and frame rate, and the rendered mix for the waveform.
 
-Finish with the viewer URL, how to start and stop it next time, what you verified, and any remaining limitations. Then ask which video or review bundle I want to open.
-```
+The preparation command creates one full movie clip if no lane metadata is supplied. Explain that limitation when using it. Only call the result a detailed timeline review when matching lane data has been supplied and checked. There is no automatic native project converter, live connection or background synchronization in this release.
 
-## What to expect
+Keep generated reviews outside this repository and preserve source projects and media. Check picture and audio timing. Tesseract 0.1.0 has shown native audio source offset differences; a completed render does not prove an accurate soundtrack. Say so if audio cannot be auditioned.
 
-The viewer is a local review screen for a rendered movie and its timeline information. It helps you point an editing agent to a clip, moment, or marked range. Its review controls do not edit the movie or your source project.
+Serve the bundle on an available port bound to 127.0.0.1. Respect the host's port registry, leave unrelated services running, and do not expose the viewer to the network. Open the full local URL through the host's permitted browser workflow.
 
-The image above is a workflow illustration using neutral graphics, not a screenshot of a private production project.
+## Show the workflow
+
+Check playback, clip selection and seeking, zoom, divider resizing, range marking, looping and copied feedback. Inspect the rendered screen when browser tools are available. Otherwise report browser verification as pending and give the user a short manual check.
+
+Explain the loop: the agent edits in Tesseract and prepares a review; the user watches, marks a moment and copies feedback; the agent revises the edit and prepares a new review. Browser controls do not modify the project or automatically refresh its render. Notes live in the current page and must be copied before closing it.
+
+Finish with the working URL, project and review locations, simple reopening and shutdown instructions, what you checked, and any remaining limitation. Keep command dumps out of ordinary conversation.
+
+## Keep CapCut optional
+
+Only use the [experimental importer](docs/experimental-importer.md) when asked. Inspect the exact named timeline and explain unsupported features first. Import into a new destination, preserve the source, and never enable lossy conversion without the user's agreement. Do not imply that editable transfers work in both directions.
+
+Use only the demo and files the user provides. Do not upload media, publish projects, commit generated bundles or request unrelated account access during setup.

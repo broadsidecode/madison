@@ -1,6 +1,6 @@
 # Viewer controls
 
-Timeline Reviewer lets you inspect a rendered movie beside a timeline manifest and copy precise feedback. It does not change clips, source files, audio, or an editor project. Playback speed, zoom, the divider, selected clips, and feedback marks affect the review page only.
+Madison lets you inspect a rendered movie beside a timeline manifest and copy precise feedback. It does not change clips, source files, audio, or an editor project. Playback speed, zoom, the divider, selected clips, and feedback marks affect the review page only.
 
 Open the address printed by the review server. The page loads the manifest and any supplied images first. It requests the movie when you play or seek. Titles, lane names, timing, frame rate, notes, and clip details come from the manifest.
 

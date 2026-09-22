@@ -798,7 +798,7 @@
       project = validateManifest(data);
       loadMessage = 'The timeline could not be displayed. Validate the review bundle, then reload this page.';
       $('project-title').textContent = project.title;
-      document.title = `${project.title} | Timeline Reviewer`;
+      document.title = `${project.title} | Madison`;
       $('frame-rate').textContent = `${project.fps} fps`;
       $('revision-label').textContent = 'Timeline snapshot';
       ruler.setAttribute('aria-valuemax', String(project.duration));

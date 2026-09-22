@@ -1,6 +1,6 @@
-# Timeline Reviewer contributor guide
+# Madison contributor guide
 
-This repository contains a local, read-only timeline review application and an optional experimental importer.
+Madison is a local timeline review companion for Tesseract, with an optional experimental CapCut importer. The viewer is read only and can also review exports from other tools.
 
 ## Scope
 - Keep the viewer independent of proprietary editing engines.

@@ -47,7 +47,7 @@ def main(argv=None):
             bundle = Path(__file__).resolve().parent / 'demo' if args.command == 'demo' else args.bundle
             with make_server(bundle, args.port) as server:
                 address = f'http://127.0.0.1:{server.server_port}/'
-                print(f'Timeline Reviewer: {address}\nRead only. Press Ctrl+C to stop.', flush=True)
+                print(f'Madison: {address}\nRead only. Press Ctrl+C to stop.', flush=True)
                 if args.open:
                     webbrowser.open(address)
                 try:
