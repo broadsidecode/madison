@@ -35,7 +35,7 @@ Tesseract needs a supported Windows or Mac computer. Your agent will check compa
 
 Watch the video beside its picture and audio lanes. Zoom in, scrub to a moment, or loop a section. Copy feedback with the exact clip or time range for your agent.
 
-![Madison showing a synthetic example with picture and audio lanes](images/viewer-demo.png)
+![Madison reviewing an episode with video preview, audio waveform and multiple timeline lanes](images/viewer-demo.png)
 
 Your agent prepares the preview and timeline, makes your requested changes in Tesseract, then prepares an updated review. Madison does not edit the project itself. Copy your notes before closing the page.
 

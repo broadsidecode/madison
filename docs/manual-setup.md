@@ -4,7 +4,7 @@ A free local review screen for Tesseract users and their editing agents. The int
 
 Watch a rendered movie, inspect its video and audio lanes, mark a range, and copy a precise editing request. The review controls never move clips, change the soundtrack, or write to an editing project.
 
-![Madison with the synthetic community demo](../images/viewer-demo.png)
+![Madison reviewing an episode with video preview, audio waveform and multiple timeline lanes](../images/viewer-demo.png)
 
 ## Start with the demo
 

@@ -14,7 +14,7 @@ Windows, Python 3.12, Node.js 24 and a fresh headless Chromium browser:
 - Browser tests recorded no script errors or failed requests. Demo movie and metadata hashes remained unchanged.
 - Server tests cover IPv4 loopback, occupied ports, approved asset access, write rejection, Host validation, malformed paths and byte ranges.
 
-The README screenshot uses only the bundled synthetic demo. No personal footage or editor project is included.
+The README uses an episode review screenshot supplied and approved for publication by the creator. The underlying footage and editor project are not included. The runnable demo remains synthetic.
 
 ## Native importer smoke test
 
