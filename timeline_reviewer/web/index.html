@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Timeline Reviewer</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body data-loaded="false" data-current-seconds="0.000" data-playing="false" data-preview-height="340" data-zoom="1" data-range-start="" data-range-end="">
+  <header class="app-header">
+    <div><p class="eyebrow">TIMELINE REVIEWER</p><h1 id="project-title">Loading timeline</h1></div>
+    <div class="header-status"><span class="status-dot" aria-hidden="true"></span><span>Review only</span><span id="project-summary" class="muted">Loading timeline</span></div>
+  </header>
+  <main>
+    <div id="error-message" class="error-message" role="alert" hidden></div>
+    <section id="review-panel" class="review-panel" aria-label="Movie preview and clip details">
+      <div class="preview-panel">
+        <div class="panel-heading"><h2>Preview</h2><span class="muted">Current rendered movie</span></div>
+        <div class="video-stage"><video id="review-video" controls playsinline preload="none" aria-label="Movie preview"></video></div>
+      </div>
+      <aside class="inspector" aria-labelledby="inspector-title">
+        <div class="panel-heading"><h2 id="inspector-title">Clip details</h2><span id="selected-track" class="badge">Select a clip</span></div>
+        <div id="empty-selection"><p class="empty-title">See a moment. Ask for a change.</p><p>Choose a clip to inspect its timing, or mark a range and copy your feedback below.</p></div>
+        <div id="selected-clip" hidden>
+          <h3 id="clip-name"></h3>
+          <p id="clip-state" class="clip-state"></p>
+          <dl class="clip-facts">
+            <div><dt>In the movie</dt><dd id="clip-edit-time"></dd></div>
+            <div><dt>In the source</dt><dd id="clip-source-time"></dd></div>
+            <div><dt>Duration</dt><dd id="clip-duration"></dd></div>
+            <div><dt>Speed</dt><dd id="clip-speed"></dd></div>
+            <div><dt>Color</dt><dd id="clip-color"></dd></div>
+            <div><dt>Clip reference</dt><dd id="clip-id"></dd></div>
+          </dl>
+          <button id="copy-reference" class="primary-button" type="button">Copy edit reference</button>
+          <p id="copy-status" class="copy-status" role="status" aria-live="polite"></p>
+          <textarea id="copy-fallback" aria-label="Edit reference to copy" readonly hidden></textarea>
+        </div>
+        <details class="feedback-panel" open>
+          <summary>Feedback</summary>
+          <label for="review-note">What should change?</label>
+          <textarea id="review-note" rows="3" maxlength="10000" placeholder="Describe the change for this moment or marked range."></textarea>
+          <div class="feedback-actions"><button id="copy-feedback" type="button" class="primary-button">Copy feedback</button><span>Kept in this page only</span></div>
+          <p id="feedback-status" class="copy-status" role="status" aria-live="polite"></p>
+          <textarea id="feedback-fallback" aria-label="Feedback to copy" readonly hidden></textarea>
+        </details>
+      </aside>
+    </section>
+    <div id="preview-divider" role="separator" tabindex="0" aria-label="Resize preview. Drag or use up and down arrows. Double click to reset." aria-orientation="horizontal" aria-controls="review-panel" aria-valuemin="160" aria-valuemax="600" aria-valuenow="340"><span aria-hidden="true"></span></div>
+    <section class="timeline-panel" aria-labelledby="timeline-title">
+      <div class="transport">
+        <div class="playback-controls"><button id="play-button" class="play-button" type="button" disabled aria-label="Play movie"><span id="play-icon" aria-hidden="true"></span><span id="play-label">Play</span></button><output id="time-display">Waiting for timeline</output></div>
+        <div class="cut-controls" aria-label="Navigate the movie"><button id="previous-cut" type="button" aria-label="Previous picture cut" title="Previous picture cut">Cut &lsaquo;</button><button id="frame-back" type="button" aria-label="Previous frame" title="Previous frame. Left arrow">&#9664;</button><button id="frame-forward" type="button" aria-label="Next frame" title="Next frame. Right arrow">&#9654;</button><button id="next-cut" type="button" aria-label="Next picture cut" title="Next picture cut">Cut &rsaquo;</button></div>
+        <form id="timecode-form" class="timecode-form"><label for="timecode-input">Time</label><input id="timecode-input" type="text" value="00:00.000" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Jump to time. Minutes, seconds and optional milliseconds." aria-describedby="timecode-status"><button id="jump-time" type="submit">Go</button></form>
+        <label class="speed-control">Preview speed <select id="playback-rate" aria-label="Preview playback speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></label>
+        <span id="frame-rate" class="muted"></span><p id="timecode-status" role="status"></p>
+      </div>
+      <div class="range-toolbar" aria-label="Feedback range"><span class="range-heading">Feedback range</span><button id="mark-in" type="button" title="Mark in. I">Mark in <kbd>I</kbd></button><button id="mark-out" type="button" title="Mark out. O">Mark out <kbd>O</kbd></button><output id="range-display">No range marked</output><button id="clear-range" type="button" disabled>Clear</button><label class="loop-control"><input id="loop-range" type="checkbox" disabled>Loop range</label></div>
+      <div class="timeline-toolbar">
+        <div class="timeline-title"><h2 id="timeline-title">Timeline</h2><span class="legend"><i class="video-key" aria-hidden="true"></i>Video <i class="audio-key" aria-hidden="true"></i>Audio <i class="hidden-key" aria-hidden="true"></i>Hidden</span></div>
+        <div class="timeline-tools"><label class="search-label"><span class="sr-only">Find a clip</span><input id="clip-search" type="search" placeholder="Find a clip" autocomplete="off"></label><span id="search-count" role="status"></span><div class="zoom-controls" aria-label="Timeline zoom"><button id="zoom-out" type="button" aria-label="Zoom out">&#8722;</button><input id="zoom-slider" type="range" min="0" max="100" step="1" value="0" aria-label="Timeline zoom"><button id="zoom-in" type="button" aria-label="Zoom in">+</button><button id="zoom-fit" type="button">Fit</button><output id="zoom-level">1x</output></div></div>
+      </div>
+      <div class="timeline-options"><label class="parked-toggle"><input id="show-parked" type="checkbox">Show parked takes</label><p>Picture clips can include dialogue.</p></div>
+      <div id="timeline-scroll" tabindex="0" aria-label="Timeline lanes. Scroll to see all visible lanes and clips.">
+        <div id="timeline-content">
+          <div class="ruler-row"><div class="ruler-label">LANES</div><div id="time-ruler" role="slider" tabindex="0" aria-label="Movie position" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></div></div>
+          <div class="mix-row"><div class="track-label"><strong>Final mix</strong><small>Waveform</small></div><div id="mix-waveform" role="slider" tabindex="0" aria-label="Final mix position" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></div></div>
+          <div id="track-list"></div>
+          <div id="range-highlight" aria-hidden="true" hidden></div>
+          <div id="playhead" role="slider" tabindex="0" aria-label="Playhead. Drag to scrub." aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span aria-hidden="true"></span></div>
+        </div>
+      </div>
+      <footer class="timeline-footer"><ul id="project-notes" hidden></ul><details class="shortcut-help"><summary>Shortcuts</summary><p>Space: play or pause<br>Left / Right: one frame<br>Shift + Left / Right: five seconds<br>I / O: mark feedback range<br>Ctrl or Cmd + wheel: zoom<br>Shift + wheel: scroll across<br>Middle mouse drag: pan<br>Drag the ruler, waveform or playhead to scrub.<br>Drag the divider to resize the preview.</p></details><span id="revision-label"></span></footer>
+    </section>
+  </main>
+</body>
+</html>
