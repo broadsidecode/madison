@@ -1,8 +1,10 @@
 # Madison
 
+![Madison / Tesseract by Mirage. Built for Tesseract.](images/madison-tesseract.png)
+
 **A free review companion for Tesseract.**
 
-Your AI agent edits the video in [Tesseract](https://github.com/mirage-hq/Tesseract). Madison gives you a timeline to watch, inspect, and give feedback on.
+Your AI agent edits the video in [Tesseract](https://github.com/mirage-hq/Tesseract), built by [Mirage](https://mirage.app/tesseract). Madison gives you a timeline to watch, inspect, and give feedback on.
 
 ## Get started
 
