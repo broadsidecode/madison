@@ -171,7 +171,9 @@ class TesseractTests(unittest.TestCase):
                 patch.object(tesseract, "_probe_audio", return_value=12000):
             report = self.run_import()
         extract = next(cmd for cmd in self.engine.commands if cmd[0] == "ffmpeg")
-        self.assertTrue(Path(extract[-1]).is_relative_to(self.output))
+        # Temp directories can use short Windows names or macOS /var aliases.
+        # Compare their canonical locations, as the importer does.
+        self.assertTrue(Path(extract[-1]).resolve().is_relative_to(self.output.resolve()))
         self.assertIn("-n", extract)
         self.assertTrue(report["source_hashes_verified"])
 
