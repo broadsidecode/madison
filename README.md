@@ -32,7 +32,7 @@ Your agent will check whether your computer can run Tesseract and guide you thro
 
 Watch the movie beside its picture and audio lanes. Zoom, scrub, mark a section and copy precise feedback for your agent. Pop the preview into another window when you want more room. When Madison is connected to an editable Tesseract project, you can remove, trim or mute simple clips and apply those changes to a new project version.
 
-![Madison desktop review with playback beneath the video and a compact timeline](https://github.com/broadsidecode/madison/releases/download/v0.5.0/madison-0.5.0-desktop.png)
+![Madison desktop review with compact timeline controls and one copy icon](images/viewer-demo.png)
 
 Your agent can handle larger revisions and render the final movie after your review.
 

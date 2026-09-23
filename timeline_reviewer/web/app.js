@@ -519,8 +519,7 @@
     $('clip-speed').textContent = `${Number(clip.speed).toFixed(3).replace(/\.?0+$/, '')}x`;
     $('clip-color').textContent = track.kind === 'audio' ? 'Not applicable' : clip.colorPending == null ? 'Not specified' : clip.colorPending ? 'Needs review' : 'No pending adjustment';
     $('clip-id').textContent = `${track.name} / Clip ${track.clips.indexOf(clip) + 1}`;
-    $('copy-status').textContent = '';
-    $('copy-fallback').hidden = true;
+    clearFeedbackStatus();
     updateEditInspector();
     if (jump) seek(clip.start);
   }
@@ -616,26 +615,12 @@
     replaceOperations(next);
   }
 
-  function referenceText() {
-    const { clip, track } = selected;
-    return [project.title, `Track: ${track.name}`, `Clip: ${clip.label}`, `Source filename: ${clip.sourceFilename || clip.label}`, `Clip ID: ${clip.id}`, clip.layerId == null ? null : `Layer ID: ${clip.layerId}`, `Current position: ${clock(video.currentTime)}`, `Current position seconds: ${video.currentTime}`, `Movie: ${clock(clip.start)} to ${clock(clip.end)}`, `Movie seconds: ${clip.start} to ${clip.end}`, `Source: ${clock(clip.sourceStart)} to ${clock(clip.sourceEnd)}`, `Speed: ${clip.speed}x`, `Hidden: ${clip.hidden ? 'yes' : 'no'}`, `Revision: ${project.revision}`, 'Requested change: '].filter((line) => line !== null).join('\n');
-  }
-
-  async function copyReference() {
-    if (!selected) return;
-    const text = referenceText();
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
-      await navigator.clipboard.writeText(text);
-      $('copy-status').textContent = 'Copied. Paste the reference with your requested change.';
-    } catch {
-      const fallback = $('copy-fallback');
-      fallback.value = text;
-      fallback.hidden = false;
-      fallback.focus();
-      fallback.select();
-      $('copy-status').textContent = 'Select and copy the reference below.';
-    }
+  function clearFeedbackStatus() {
+    $('feedback-status').textContent = '';
+    $('feedback-fallback').hidden = true;
+    $('feedback-fallback').value = '';
+    $('copy-feedback').removeAttribute('data-clicked');
+    if (lastClickedButton === $('copy-feedback')) lastClickedButton = null;
   }
 
   function renderRange() {
@@ -666,11 +651,13 @@
       if (rangeStart !== null && rangeStart >= rangeEnd) rangeStart = null;
     }
     renderRange();
+    clearFeedbackStatus();
     saveViewState();
   }
 
   async function copyFeedback() {
     if (!project) return;
+    document.querySelector('.feedback-panel').open = true;
     const parts = [project.title, `Current position: ${clock(currentSeconds())}`, `Current position seconds: ${currentSeconds()}`];
     parts.push(hasRange() ? `Feedback range: ${clock(rangeStart)} to ${clock(rangeEnd)}` : 'Feedback range: no complete range marked');
     if (rangeStart !== null) parts.push(`Range start seconds: ${rangeStart}`);
@@ -678,6 +665,11 @@
     if (selected) {
       parts.push(`Lane: ${selected.track.name}`, `Clip: ${selected.clip.label}`, `Source filename: ${selected.clip.sourceFilename || selected.clip.label}`, `Clip ID: ${selected.clip.id}`);
       if (selected.clip.layerId != null) parts.push(`Layer ID: ${selected.clip.layerId}`);
+      parts.push(`Movie: ${clock(selected.clip.start)} to ${clock(selected.clip.end)}`,
+        `Movie seconds: ${selected.clip.start} to ${selected.clip.end}`,
+        `Source: ${clock(selected.clip.sourceStart)} to ${clock(selected.clip.sourceEnd)}`,
+        `Source seconds: ${selected.clip.sourceStart} to ${selected.clip.sourceEnd}`,
+        `Speed: ${selected.clip.speed}x`, `Hidden: ${selected.clip.hidden ? 'yes' : 'no'}`);
     } else parts.push('Selected clip: none');
     parts.push(`Revision: ${project.revision}`, '', `Requested change: ${$('review-note').value.trim() || '(add your feedback here)'}`);
     const text = parts.join('\n');
@@ -776,6 +768,7 @@
       delete $('selected-clip').dataset.clipId;
       $('empty-selection').hidden = false;
       $('selected-track').textContent = 'Select a clip';
+      clearFeedbackStatus();
     }
     searchClips();
     saveViewState();
@@ -958,6 +951,8 @@
     const previousRevision = project?.revision;
     project = validateManifest(data);
     selected = null;
+    clearFeedbackStatus();
+    $('copy-feedback').disabled = false;
     $('project-title').textContent = project.title;
     document.title = `${project.title} | Madison`;
     $('frame-rate').textContent = `${project.fps} fps`;
@@ -1475,7 +1470,6 @@
   else { $('popout-preview').hidden = false; $('popout-preview').disabled = true; $('popout-preview').setAttribute('aria-label', 'Pop out unavailable in this browser'); $('popout-preview').dataset.tip = 'Pop out unavailable in this browser'; }
   $('popout-preview').addEventListener('click', openPopout);
   for (const element of [video, sourceVideo]) element.addEventListener('leavepictureinpicture', () => { $('popout-preview').setAttribute('aria-pressed', 'false'); $('popout-status').textContent = ''; });
-  $('copy-reference').addEventListener('click', copyReference);
   $('zoom-in').addEventListener('click', () => zoom(1.7));
   $('zoom-out').addEventListener('click', () => zoom(1 / 1.7));
   $('zoom-fit').addEventListener('click', fitTimeline);
@@ -1493,10 +1487,10 @@
     $('timecode-status').textContent = '';
   });
   $('playback-rate').addEventListener('change', () => { video.playbackRate = Number($('playback-rate').value); syncDraftPreview(); saveViewState(); });
-  $('review-note').addEventListener('input', saveViewState);
+  $('review-note').addEventListener('input', () => { clearFeedbackStatus(); saveViewState(); });
   $('mark-in').addEventListener('click', () => markRange('in'));
   $('mark-out').addEventListener('click', () => markRange('out'));
-  $('clear-range').addEventListener('click', () => { rangeStart = null; rangeEnd = null; renderRange(); saveViewState(); });
+  $('clear-range').addEventListener('click', () => { rangeStart = null; rangeEnd = null; renderRange(); clearFeedbackStatus(); saveViewState(); });
   $('loop-range').addEventListener('change', () => {
     if ($('loop-range').checked && hasRange() && (currentSeconds() >= rangeEnd || currentSeconds() < rangeStart)) seek(rangeStart);
   });

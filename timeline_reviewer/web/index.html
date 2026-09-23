@@ -23,11 +23,11 @@
         <div class="preview-actions" aria-label="Preview playback controls"><div class="viewer-playback"><button id="play-button" class="icon-button play-button" type="button" disabled aria-label="Play movie" aria-pressed="false" data-tip="Play or pause"><span id="play-icon" aria-hidden="true"></span><span id="play-label" class="sr-only">Play</span></button><div class="control-divider" aria-hidden="true"></div><div class="cut-controls" aria-label="Navigate the movie"><button id="previous-cut" class="icon-button" type="button" aria-label="Previous picture cut" data-tip="Previous cut"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14m14-14L9 12l10 7z"/></svg></button><button id="frame-back" class="icon-button" type="button" aria-label="Previous frame" data-tip="Previous frame"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 5 7 12l10 7z"/></svg></button><button id="frame-forward" class="icon-button" type="button" aria-label="Next frame" data-tip="Next frame"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 5 10 7-10 7z"/></svg></button><button id="next-cut" class="icon-button" type="button" aria-label="Next picture cut" data-tip="Next cut"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5v14M5 5l10 7-10 7z"/></svg></button></div><div class="control-divider" aria-hidden="true"></div><output id="time-display">Waiting for timeline</output></div><div class="viewer-audio"><button id="preview-mute" class="icon-button" type="button" aria-label="Mute preview" aria-pressed="false" data-tip="Mute preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="volume-waves" d="M16 9c2 1 2 5 0 6m2-9c4 3 4 9 0 12"/></svg></button><label class="volume-control"><span class="sr-only">Preview volume</span><input id="preview-volume" type="range" min="0" max="1" step="0.05" value="1" aria-label="Preview volume"></label><button id="preview-fullscreen" class="icon-button" type="button" aria-label="Full screen preview" aria-pressed="false" data-tip="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5"/></svg></button></div><input id="preview-seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="Seek movie"></div>
       </div>
       <aside class="inspector" aria-labelledby="inspector-title">
-        <div class="panel-heading"><h2 id="inspector-title">Clip details</h2><div class="inspector-heading-actions"><span id="selected-track" class="badge">Select a clip</span><button id="toggle-inspector" class="icon-button" type="button" aria-label="Hide clip details" aria-expanded="true" aria-controls="inspector-content" data-tip="Hide clip details"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button></div></div>
+        <div class="panel-heading"><h2 id="inspector-title">Clip details</h2><div class="inspector-heading-actions"><span id="selected-track" class="badge">Select a clip</span><button id="copy-feedback" class="icon-button copy-icon" type="button" aria-label="Copy feedback" data-tip="Copy feedback" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="1.5"/><path d="M5 15h-.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"/></svg></button><button id="toggle-inspector" class="icon-button" type="button" aria-label="Hide clip details" aria-expanded="true" aria-controls="inspector-content" data-tip="Hide clip details"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button></div></div>
         <div id="inspector-content">
         <div id="empty-selection"><p class="empty-title">See a moment. Ask for a change.</p><p>Choose a clip to inspect its timing, or mark a range and copy your feedback below.</p></div>
         <div id="selected-clip" hidden>
-          <div class="clip-title-row"><h3 id="clip-name"></h3><button id="copy-reference" class="icon-button copy-icon" type="button" aria-label="Copy edit reference" data-tip="Copy edit reference"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="1.5"/><path d="M5 15h-.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"/></svg></button></div>
+          <h3 id="clip-name"></h3>
           <p id="clip-state" class="clip-state"></p>
           <dl class="clip-facts">
             <div><dt>In the movie</dt><dd id="clip-edit-time"></dd></div>
@@ -44,14 +44,11 @@
             <form id="volume-form" class="clip-edit-form"><label>Volume <input id="clip-volume" type="number" min="0" max="2" step="0.01" inputmode="decimal" required></label><button type="submit">Set volume</button><button id="mute-clip" type="button">Mute</button></form>
             <p id="clip-edit-status" role="status"></p>
           </div>
-          <p id="copy-status" class="copy-status" role="status" aria-live="polite"></p>
-          <textarea id="copy-fallback" aria-label="Edit reference to copy" readonly hidden></textarea>
         </div>
         <details class="feedback-panel" open>
           <summary>Feedback</summary>
           <label for="review-note">What should change?</label>
           <textarea id="review-note" rows="3" maxlength="10000" placeholder="Describe the change for this moment or marked range."></textarea>
-          <div class="feedback-actions"><button id="copy-feedback" type="button" class="primary-button">Copy feedback</button><span>Kept in this tab</span></div>
           <p id="feedback-status" class="copy-status" role="status" aria-live="polite"></p>
           <textarea id="feedback-fallback" aria-label="Feedback to copy" readonly hidden></textarea>
         </details>

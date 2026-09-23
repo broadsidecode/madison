@@ -51,17 +51,17 @@ The timeline reflects queued edits immediately. During a draft, Madison uses app
 
 **Find a clip** searches clip names, original source filenames when provided, clip identifiers, and lane names. Matching visible clips are highlighted. Matches in concealed parked lanes are counted separately so you can reveal them. Clearing the search restores normal emphasis.
 
-Selecting a clip shows its movie range, source range, duration, speed, color review status, and a readable lane and clip number. The copy icon beside its name provides the precise timing, source filename, source identifiers, current movie position, and manifest revision. Its tooltip and keyboard name say **Copy edit reference**. If the clipboard is unavailable, the page exposes selectable text for manual copying. You can hide and reopen the clip details panel without losing the selection or note.
+Selecting a clip shows its movie range, source range, duration, speed, color review status, and a readable lane and clip number. The single copy icon in the **Clip details** heading works with or without a selected clip. It copies your note, current position, marked range, and full clip timing and source details when a clip is selected. Its tooltip and keyboard name say **Copy feedback**. If the clipboard is unavailable, the page exposes selectable text for manual copying. You can hide and reopen the clip details panel without losing the selection or note.
 
 ## Feedback ranges and notes
 
 1. Seek to the start of the moment you want to discuss and choose **Mark in** or press **I**.
 2. Seek to its end and choose **Mark out** or press **O**.
 3. The marked range appears as a highlighted band with exact times. **Loop range** repeats that range during playback.
-4. Open **Feedback** in the details panel, describe the requested change, and choose **Copy feedback**.
+4. Open **Feedback** in the details panel, describe the requested change, and choose the copy icon in the **Clip details** heading.
 5. Paste the copied text into your conversation or review tool.
 
-Copied feedback includes your note, the current position, any marked range, the selected clip's manifest identifiers when one is selected, and the manifest revision. The application adds no local filesystem paths. Source names and other manifest text are included as supplied.
+Copied feedback includes your note, the current position, any marked range, the selected clip's identifiers, movie and source ranges, speed, hidden state when one is selected, and the manifest revision. The application adds no local filesystem paths. Source names and other manifest text are included as supplied.
 
 A range needs an out point after its in point. If a new mark conflicts with the other endpoint, the other endpoint is cleared so you can set it again. **Clear** removes both endpoints and disables looping; it keeps your written note.
 

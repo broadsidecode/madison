@@ -43,10 +43,10 @@ The older `demo` and `serve` commands remain available for contributors who need
 - Scrub by dragging the ruler, waveform, or playhead.
 - Step through frames, jump between picture boundaries, enter a time, or change preview speed.
 - Press **I** and **O** to mark a feedback range. Loop it while reviewing.
-- Write a note and choose **Copy feedback**, then paste it into your editor or agent conversation.
+- Write a note and choose the copy icon in **Clip details**, then paste the feedback into your editor or agent conversation.
 - Keep inactive alternatives out of the main view with **Show parked takes**.
 
-Notes and marked ranges live in the current page only. Copy them before closing or reloading. Frame stepping seeks according to the manifest frame rate; it is a review aid, not a frame accurate editing engine.
+Notes and marked ranges survive a reload in the current browser tab. Copy them before closing the tab if you want to keep them elsewhere. Frame stepping seeks according to the manifest frame rate; it is a review aid, not a frame accurate editing engine.
 
 [Full controls guide](viewer-controls.md)
 
