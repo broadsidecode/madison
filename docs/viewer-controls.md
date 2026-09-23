@@ -6,13 +6,13 @@ Open the address printed by the review server. The page loads the manifest and a
 
 ## Preview and layout
 
-Use **Play** or the movie's native controls to start and pause playback. **Preview speed** offers 0.5x, 1x, 1.5x, and 2x. This setting does not change the speed stored for any clip.
+Use the controls beneath the movie to play, pause, step through frames, jump between picture cuts, seek, adjust volume, or enter full screen. The compact timeline bar has **Speed** options of 0.5x, 1x, 1.5x, and 2x. This setting does not change the speed stored for any clip. A clicked action stays highlighted until you click it again or choose another action. Controls with an on or off state show that state directly.
 
 **Reload viewer** checks for a newer manifest and updates the page in place. It does not import from CapCut. Playback position, timeline zoom and scroll, selected clip when it still exists, divider height, feedback marks, note, parked lane setting, and preview speed remain where they were. The page checks for changes while visible. A full browser reload restores these view settings from that tab's session storage; positions beyond a shortened episode move to its new end. The note stays on this computer and is not sent to the server.
 
-In a normal review or demo, **Connect CapCut** explains the one time local setup and gives you a request to copy to your agent. It does not inspect or import a project. When an agent has connected a saved CapCut project, the button becomes **Sync from CapCut** and opens a separate change preview. It shows added and removed clips, meaningful timeline moves, small timing shifts, lane changes, trims, and changed settings, plus the old and new lengths. Tiny rounding differences are ignored. Grouped warnings identify effects or audio that may differ. Missing media blocks the sync. You must acknowledge known differences before starting. Madison keeps the previous movie visible while it builds a new local Tesseract project and review. A failed job leaves that earlier review available. See the [CapCut importer and sync guide](experimental-importer.md).
+In an unconnected review, **Connect CapCut** in the header explains the one time local setup and gives you a request to copy to your agent. It does not inspect or import a project. When an agent has connected a saved CapCut project, the button becomes **Sync from CapCut** and opens a separate change preview. It shows added and removed clips, meaningful timeline moves, small timing shifts, lane changes, trims, and changed settings, plus the old and new lengths. Tiny rounding differences are ignored. Grouped warnings identify effects or audio that may differ. Missing media blocks the sync. You must acknowledge known differences before starting. Madison keeps the previous movie visible while it builds a new local Tesseract project and review. A failed job leaves that earlier review available. See the [CapCut importer and sync guide](experimental-importer.md).
 
-In browsers with Document Picture in Picture, **Pop out preview** opens the same player in a small window with its own play button and seek bar. Its image does not dim when you move the pointer over it. Other browsers can use native picture in picture when supported; its browser controls may dim on hover. The button says **Popout unavailable in this browser** only when neither mode is supported. Closing the custom window returns the same player to Madison.
+The small pop out icon in the preview heading opens the same player in a separate window when Document Picture in Picture is supported. That window has its own play button and seek bar, and its image does not dim when you move the pointer over it. Other browsers can use native picture in picture when supported; its browser controls may dim on hover. When neither mode is supported, the icon is disabled and its tooltip says why. Closing the custom window returns the same player to Madison.
 
 Drag the divider between the preview and timeline to give either area more room. Double click it to reset the layout. With the divider focused, press **Arrow Up** or **Arrow Down** to resize it; hold **Shift** for larger steps. **Home** selects the smallest permitted preview and **End** selects the largest. The bounds adapt to the window size. On narrow screens the divider changes the preview height while the details panel stays below the movie.
 
@@ -33,7 +33,7 @@ Drag the divider between the preview and timeline to give either area more room.
 
 Cut navigation includes the starts and ends of active video clips, including overlays. It excludes audio clips, hidden clips, and parked lanes. Opening parked lanes does not change those cut targets.
 
-Enter a position in **Time**, then choose **Go** or press **Enter**. Accepted formats are `mm:ss`, `mm:ss.mmm`, `hh:mm:ss`, and `hh:mm:ss.mmm`. For example, `01:23.456` means one minute and 23.456 seconds. The page reports invalid input and positions beyond the manifest duration.
+Enter a position in **Go to**, then choose its arrow button or press **Enter**. Accepted formats are `mm:ss`, `mm:ss.mmm`, `hh:mm:ss`, and `hh:mm:ss.mmm`. For example, `01:23.456` means one minute and 23.456 seconds. The page reports invalid input and positions beyond the manifest duration.
 
 Scrubbing temporarily pauses a playing movie and resumes it when you release the pointer. A canceled gesture leaves playback paused. Frame stepping uses the manifest frame rate; the exact decoded image depends on the movie and browser seeking behavior.
 
@@ -41,7 +41,7 @@ Scrubbing temporarily pauses a playing movie and resumes it when you release the
 
 Video lanes use blue and teal. Separate audio lanes use amber. Picture clips may include their own dialogue. The **Final mix** waveform represents the supplied combined movie audio, not the isolated contents of each audio lane. Large waveform arrays are grouped by their strongest sample for display. If the manifest has no waveform, the lane says **No waveform supplied** and seeking still works.
 
-**Show parked takes** reveals lanes marked as parked. The header counts visible lanes and clips and reports the total parked clip count. Clips marked hidden use a dashed outline and a text label. In a read only bundle, these are manifest annotations and the preview remains the supplied rendered movie.
+Open **View** in the timeline bar to reveal **Show parked takes**, the lane legend, and the note about picture clips with dialogue. The header counts visible lanes and clips and reports the total parked clip count. Clips marked hidden use a dashed outline and a text label. In a read only bundle, these are manifest annotations and the preview remains the supplied rendered movie.
 
 ## Editing a bound Tesseract project
 
@@ -51,7 +51,7 @@ The timeline reflects queued edits immediately. During a draft, Madison uses app
 
 **Find a clip** searches clip names, original source filenames when provided, clip identifiers, and lane names. Matching visible clips are highlighted. Matches in concealed parked lanes are counted separately so you can reveal them. Clearing the search restores normal emphasis.
 
-Selecting a clip shows its movie range, source range, duration, speed, color review status, and a readable lane and clip number. **Copy edit reference** includes the precise timing, source filename, source identifiers, current movie position, and manifest revision. If the clipboard is unavailable, the page exposes selectable text for manual copying.
+Selecting a clip shows its movie range, source range, duration, speed, color review status, and a readable lane and clip number. The copy icon beside its name provides the precise timing, source filename, source identifiers, current movie position, and manifest revision. Its tooltip and keyboard name say **Copy edit reference**. If the clipboard is unavailable, the page exposes selectable text for manual copying. You can hide and reopen the clip details panel without losing the selection or note.
 
 ## Feedback ranges and notes
 

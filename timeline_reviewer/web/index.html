@@ -12,21 +12,22 @@
 <body data-loaded="false" data-current-seconds="0.000" data-playing="false" data-preview-height="340" data-zoom="1" data-range-start="" data-range-end="">
   <header class="app-header">
     <div><p class="eyebrow">MADISON</p><h1 id="project-title">Loading timeline</h1></div>
-    <div class="header-status"><span class="status-dot" aria-hidden="true"></span><span id="mode-label">Review only</span><span id="project-summary" class="muted">Loading timeline</span><details class="runtime-panel"><summary id="runtime-summary">Checking version</summary><div class="runtime-details"><p id="runtime-build"></p><p id="runtime-source"></p><p id="runtime-github"></p><p id="runtime-warning" class="runtime-warning" role="alert" hidden></p></div></details></div>
+    <div class="header-status"><span class="status-dot" aria-hidden="true"></span><span id="mode-label">Review only</span><span id="project-summary" class="muted">Loading timeline</span><button id="capcut-sync-open" type="button" class="primary-button">Connect CapCut</button><details class="runtime-panel"><summary id="runtime-summary">Checking version</summary><div class="runtime-details"><p id="runtime-build"></p><p id="runtime-source"></p><p id="runtime-github"></p><p id="runtime-warning" class="runtime-warning" role="alert" hidden></p></div></details></div>
   </header>
   <main>
     <div id="error-message" class="error-message" role="alert" hidden></div>
     <section id="review-panel" class="review-panel" aria-label="Movie preview and clip details">
       <div class="preview-panel">
-        <div class="panel-heading"><h2>Preview</h2><span id="preview-label" class="muted">Current rendered movie</span></div>
-        <div id="video-stage" class="video-stage"><video id="review-video" controls playsinline preload="none" aria-label="Movie preview"></video><video id="source-video" playsinline preload="metadata" muted aria-label="Draft source preview" hidden></video><p id="draft-preview-message" class="draft-preview-message" role="status" hidden></p></div>
-        <div class="preview-actions"><button id="popout-preview" type="button" hidden>Pop out preview</button><span id="popout-status" role="status"></span></div>
+        <div class="panel-heading"><h2>Preview</h2><div class="preview-heading-actions"><span id="preview-label" class="muted">Current rendered movie</span><span id="popout-status" role="status"></span><button id="popout-preview" class="icon-button" type="button" aria-label="Pop out preview" aria-pressed="false" data-tip="Pop out preview" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 4h7v7m0-7-9 9M19 15v5H4V5h7"/></svg></button></div></div>
+        <div id="video-stage" class="video-stage"><video id="review-video" playsinline preload="none" aria-label="Movie preview"></video><video id="source-video" playsinline preload="metadata" muted aria-label="Draft source preview" hidden></video><p id="draft-preview-message" class="draft-preview-message" role="status" hidden></p></div>
+        <div class="preview-actions" aria-label="Preview playback controls"><div class="viewer-playback"><button id="play-button" class="icon-button play-button" type="button" disabled aria-label="Play movie" aria-pressed="false" data-tip="Play or pause"><span id="play-icon" aria-hidden="true"></span><span id="play-label" class="sr-only">Play</span></button><div class="control-divider" aria-hidden="true"></div><div class="cut-controls" aria-label="Navigate the movie"><button id="previous-cut" class="icon-button" type="button" aria-label="Previous picture cut" data-tip="Previous cut"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14m14-14L9 12l10 7z"/></svg></button><button id="frame-back" class="icon-button" type="button" aria-label="Previous frame" data-tip="Previous frame"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 5 7 12l10 7z"/></svg></button><button id="frame-forward" class="icon-button" type="button" aria-label="Next frame" data-tip="Next frame"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 5 10 7-10 7z"/></svg></button><button id="next-cut" class="icon-button" type="button" aria-label="Next picture cut" data-tip="Next cut"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5v14M5 5l10 7-10 7z"/></svg></button></div><div class="control-divider" aria-hidden="true"></div><output id="time-display">Waiting for timeline</output></div><div class="viewer-audio"><button id="preview-mute" class="icon-button" type="button" aria-label="Mute preview" aria-pressed="false" data-tip="Mute preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="volume-waves" d="M16 9c2 1 2 5 0 6m2-9c4 3 4 9 0 12"/></svg></button><label class="volume-control"><span class="sr-only">Preview volume</span><input id="preview-volume" type="range" min="0" max="1" step="0.05" value="1" aria-label="Preview volume"></label><button id="preview-fullscreen" class="icon-button" type="button" aria-label="Full screen preview" aria-pressed="false" data-tip="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5"/></svg></button></div><input id="preview-seek" type="range" min="0" max="0" step="0.001" value="0" aria-label="Seek movie"></div>
       </div>
       <aside class="inspector" aria-labelledby="inspector-title">
-        <div class="panel-heading"><h2 id="inspector-title">Clip details</h2><span id="selected-track" class="badge">Select a clip</span></div>
+        <div class="panel-heading"><h2 id="inspector-title">Clip details</h2><div class="inspector-heading-actions"><span id="selected-track" class="badge">Select a clip</span><button id="toggle-inspector" class="icon-button" type="button" aria-label="Hide clip details" aria-expanded="true" aria-controls="inspector-content" data-tip="Hide clip details"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button></div></div>
+        <div id="inspector-content">
         <div id="empty-selection"><p class="empty-title">See a moment. Ask for a change.</p><p>Choose a clip to inspect its timing, or mark a range and copy your feedback below.</p></div>
         <div id="selected-clip" hidden>
-          <h3 id="clip-name"></h3>
+          <div class="clip-title-row"><h3 id="clip-name"></h3><button id="copy-reference" class="icon-button copy-icon" type="button" aria-label="Copy edit reference" data-tip="Copy edit reference"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="1.5"/><path d="M5 15h-.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"/></svg></button></div>
           <p id="clip-state" class="clip-state"></p>
           <dl class="clip-facts">
             <div><dt>In the movie</dt><dd id="clip-edit-time"></dd></div>
@@ -36,7 +37,6 @@
             <div><dt>Color</dt><dd id="clip-color"></dd></div>
             <div><dt>Clip reference</dt><dd id="clip-id"></dd></div>
           </dl>
-          <button id="copy-reference" class="primary-button" type="button">Copy edit reference</button>
           <div id="clip-edit-controls" class="clip-edit-controls" hidden>
             <h4>Edit this clip</h4>
             <div class="clip-edit-row"><button id="remove-clip" type="button">Remove clip</button><button id="restore-clip" type="button" hidden>Restore clip</button></div>
@@ -55,24 +55,29 @@
           <p id="feedback-status" class="copy-status" role="status" aria-live="polite"></p>
           <textarea id="feedback-fallback" aria-label="Feedback to copy" readonly hidden></textarea>
         </details>
+        </div>
       </aside>
     </section>
     <div id="edit-toolbar" class="edit-toolbar" hidden><span id="edit-count">No changes queued</span><button id="undo-edit" type="button" disabled>Undo</button><button id="redo-edit" type="button" disabled>Redo</button><button id="apply-edits" type="button" class="primary-button" disabled>Apply changes</button><span id="edit-status" role="status" aria-live="polite"></span><div id="queued-edits" class="queued-edits"></div></div>
     <div id="preview-divider" role="separator" tabindex="0" aria-label="Resize preview. Drag or use up and down arrows. Double click to reset." aria-orientation="horizontal" aria-controls="review-panel" aria-valuemin="160" aria-valuemax="600" aria-valuenow="340"><span aria-hidden="true"></span></div>
     <section class="timeline-panel" aria-labelledby="timeline-title">
-      <div class="transport">
-        <div class="playback-controls"><button id="play-button" class="play-button" type="button" disabled aria-label="Play movie"><span id="play-icon" aria-hidden="true"></span><span id="play-label">Play</span></button><output id="time-display">Waiting for timeline</output></div>
-        <div class="cut-controls" aria-label="Navigate the movie"><button id="previous-cut" type="button" aria-label="Previous picture cut" title="Previous picture cut">Cut &lsaquo;</button><button id="frame-back" type="button" aria-label="Previous frame" title="Previous frame. Left arrow">&#9664;</button><button id="frame-forward" type="button" aria-label="Next frame" title="Next frame. Right arrow">&#9654;</button><button id="next-cut" type="button" aria-label="Next picture cut" title="Next picture cut">Cut &rsaquo;</button></div>
-        <form id="timecode-form" class="timecode-form"><label for="timecode-input">Time</label><input id="timecode-input" type="text" value="00:00.000" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Jump to time. Minutes, seconds and optional milliseconds." aria-describedby="timecode-status"><button id="jump-time" type="submit">Go</button></form>
-        <label class="speed-control">Preview speed <select id="playback-rate" aria-label="Preview playback speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></label>
-        <button id="refresh-timeline" type="button" title="Reload the Madison viewer. This does not import from CapCut.">Reload viewer</button><button id="capcut-sync-open" type="button" class="primary-button">Connect CapCut</button><span id="refresh-status" role="status" aria-live="polite"></span><span id="frame-rate" class="muted"></span><p id="timecode-status" role="status"></p>
+      <div class="timeline-toolbar compact-toolbar">
+        <div class="toolbar-group timeline-title"><h2 id="timeline-title">Timeline</h2></div>
+        <div class="toolbar-separator" aria-hidden="true"></div>
+        <form id="timecode-form" class="toolbar-group timecode-form"><label for="timecode-input">Go to</label><input id="timecode-input" type="text" value="00:00.000" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Jump to time. Minutes, seconds and optional milliseconds." aria-describedby="timecode-status"><button id="jump-time" class="icon-button" type="submit" aria-label="Go to time" data-tip="Go to time">&#8629;</button></form>
+        <div class="toolbar-separator" aria-hidden="true"></div>
+        <label class="toolbar-group speed-control">Speed <select id="playback-rate" aria-label="Preview playback speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></label>
+        <div class="toolbar-separator" aria-hidden="true"></div>
+        <div class="toolbar-group range-controls" aria-label="Feedback range"><button id="mark-in" class="icon-button" type="button" aria-label="Mark in" data-tip="Mark in (I)">[</button><button id="mark-out" class="icon-button" type="button" aria-label="Mark out" data-tip="Mark out (O)">]</button><output id="range-display">No range marked</output><button id="clear-range" class="icon-button" type="button" aria-label="Clear range" data-tip="Clear range" disabled>&times;</button><label class="loop-control" data-tip="Loop marked range"><input id="loop-range" type="checkbox" disabled aria-label="Loop marked range"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7a8 8 0 1 0 1 8m-1-8V3m0 4h-4"/></svg></label></div>
+        <div class="toolbar-separator" aria-hidden="true"></div>
+        <label class="toolbar-group search-label"><span class="sr-only">Find a clip</span><input id="clip-search" type="search" placeholder="Find a clip" autocomplete="off"></label><span id="search-count" role="status"></span>
+        <div class="toolbar-separator" aria-hidden="true"></div>
+        <div class="toolbar-group zoom-controls" aria-label="Timeline zoom"><button id="zoom-out" class="icon-button" type="button" aria-label="Zoom out" data-tip="Zoom out">&#8722;</button><input id="zoom-slider" type="range" min="0" max="100" step="1" value="0" aria-label="Timeline zoom"><button id="zoom-in" class="icon-button" type="button" aria-label="Zoom in" data-tip="Zoom in">+</button><button id="zoom-fit" type="button">Fit</button><output id="zoom-level">1x</output></div>
+        <div class="toolbar-separator" aria-hidden="true"></div>
+        <details class="view-menu"><summary>View</summary><div class="view-menu-panel"><label class="parked-toggle"><input id="show-parked" type="checkbox">Show parked takes</label><div class="legend"><i class="video-key" aria-hidden="true"></i>Video <i class="audio-key" aria-hidden="true"></i>Audio <i class="hidden-key" aria-hidden="true"></i>Hidden</div><p>Picture clips can include dialogue.</p></div></details>
+        <button id="refresh-timeline" class="icon-button" type="button" aria-label="Reload viewer" data-tip="Reload viewer">&#8635;</button>
+        <span id="refresh-status" role="status" aria-live="polite"></span><p id="timecode-status" role="status"></p>
       </div>
-      <div class="range-toolbar" aria-label="Feedback range"><span class="range-heading">Feedback range</span><button id="mark-in" type="button" title="Mark in. I">Mark in <kbd>I</kbd></button><button id="mark-out" type="button" title="Mark out. O">Mark out <kbd>O</kbd></button><output id="range-display">No range marked</output><button id="clear-range" type="button" disabled>Clear</button><label class="loop-control"><input id="loop-range" type="checkbox" disabled>Loop range</label></div>
-      <div class="timeline-toolbar">
-        <div class="timeline-title"><h2 id="timeline-title">Timeline</h2><span class="legend"><i class="video-key" aria-hidden="true"></i>Video <i class="audio-key" aria-hidden="true"></i>Audio <i class="hidden-key" aria-hidden="true"></i>Hidden</span></div>
-        <div class="timeline-tools"><label class="search-label"><span class="sr-only">Find a clip</span><input id="clip-search" type="search" placeholder="Find a clip" autocomplete="off"></label><span id="search-count" role="status"></span><div class="zoom-controls" aria-label="Timeline zoom"><button id="zoom-out" type="button" aria-label="Zoom out">&#8722;</button><input id="zoom-slider" type="range" min="0" max="100" step="1" value="0" aria-label="Timeline zoom"><button id="zoom-in" type="button" aria-label="Zoom in">+</button><button id="zoom-fit" type="button">Fit</button><output id="zoom-level">1x</output></div></div>
-      </div>
-      <div class="timeline-options"><label class="parked-toggle"><input id="show-parked" type="checkbox">Show parked takes</label><p>Picture clips can include dialogue.</p></div>
       <div id="timeline-scroll" tabindex="0" aria-label="Timeline lanes. Scroll to see all visible lanes and clips.">
         <div id="timeline-content">
           <div class="ruler-row"><div class="ruler-label">LANES</div><div id="time-ruler" role="slider" tabindex="0" aria-label="Movie position" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></div></div>
@@ -82,7 +87,7 @@
           <div id="playhead" role="slider" tabindex="0" aria-label="Playhead. Drag to scrub." aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span aria-hidden="true"></span></div>
         </div>
       </div>
-      <footer class="timeline-footer"><ul id="project-notes" hidden></ul><details class="shortcut-help"><summary>Shortcuts</summary><p>Space: play or pause<br>Left / Right: one frame<br>Shift + Left / Right: five seconds<br>I / O: mark feedback range<br>Ctrl or Cmd + wheel: zoom<br>Shift + wheel: scroll across<br>Middle mouse drag: pan<br>Drag the ruler, waveform or playhead to scrub.<br>Drag the divider to resize the preview.</p></details><span id="revision-label"></span></footer>
+      <footer class="timeline-footer"><ul id="project-notes" hidden></ul><span id="frame-rate" class="muted"></span><details class="shortcut-help"><summary>Shortcuts</summary><p>Space: play or pause<br>Left / Right: one frame<br>Shift + Left / Right: five seconds<br>I / O: mark feedback range<br>Ctrl or Cmd + wheel: zoom<br>Shift + wheel: scroll across<br>Middle mouse drag: pan<br>Drag the ruler, waveform or playhead to scrub.<br>Drag the divider to resize the preview.</p></details><span id="revision-label"></span></footer>
     </section>
   </main>
   <dialog id="capcut-sync-dialog" aria-labelledby="capcut-sync-title" aria-describedby="capcut-sync-intro">

@@ -24,6 +24,9 @@
   let pendingSeek = null;
   let mediaLoadStarted = false;
   let previewHeight = 340;
+  let inspectorCollapsed = false;
+  let userMuted = false;
+  let lastAudibleVolume = 1;
   let dividerDrag = null;
   let scrub = null;
   let pan = null;
@@ -49,6 +52,7 @@
   let popoutWindow = null;
   let popoutHost = null;
   let saveTimer = null;
+  let lastClickedButton = null;
   const viewKey = `madison-view:${location.pathname}`;
   const runtimePage = {
     version: document.querySelector('meta[name="madison-version"]')?.content || '',
@@ -129,7 +133,7 @@
     saveTimer = setTimeout(() => {
       saveTimer = null;
       try {
-        sessionStorage.setItem(viewKey, JSON.stringify({ time: currentSeconds(), scale, fitMode, scrollLeft: scroller.scrollLeft, scrollTop: scroller.scrollTop, selectedId: selected?.clip.id || null, previewHeight, rangeStart, rangeEnd, loop: $('loop-range').checked, note: $('review-note').value, playbackRate: Number($('playback-rate').value), playing: !video.paused && !video.ended, showParked: $('show-parked').checked }));
+        sessionStorage.setItem(viewKey, JSON.stringify(captureView()));
       } catch { /* Storage can be unavailable in private browsing. */ }
     }, 150);
   }
@@ -149,7 +153,18 @@
   }
 
   function captureView() {
-    return { time: currentSeconds(), scale, fitMode, scrollLeft: scroller.scrollLeft, scrollTop: scroller.scrollTop, selectedId: selected?.clip.id || null, previewHeight, rangeStart, rangeEnd, loop: $('loop-range').checked, note: $('review-note').value, playbackRate: Number($('playback-rate').value), playing: !video.paused && !video.ended, showParked: $('show-parked').checked };
+    return { time: currentSeconds(), scale, fitMode, scrollLeft: scroller.scrollLeft, scrollTop: scroller.scrollTop, selectedId: selected?.clip.id || null, previewHeight, inspectorCollapsed, rangeStart, rangeEnd, loop: $('loop-range').checked, note: $('review-note').value, playbackRate: Number($('playback-rate').value), playing: !video.paused && !video.ended, showParked: $('show-parked').checked };
+  }
+
+  function setInspectorCollapsed(collapsed) {
+    inspectorCollapsed = Boolean(collapsed);
+    $('review-panel').classList.toggle('inspector-collapsed', inspectorCollapsed);
+    $('inspector-content').hidden = inspectorCollapsed;
+    const toggle = $('toggle-inspector');
+    toggle.setAttribute('aria-expanded', String(!inspectorCollapsed));
+    toggle.setAttribute('aria-label', inspectorCollapsed ? 'Show clip details' : 'Hide clip details');
+    toggle.dataset.tip = inspectorCollapsed ? 'Show clip details' : 'Hide clip details';
+    saveViewState();
   }
 
   function previewBounds() {
@@ -288,6 +303,11 @@
     }
     document.body.dataset.currentSeconds = current.toFixed(3);
     $('time-display').textContent = `${clock(current)} / ${clock(project.duration)}`;
+    const previewSeek = $('preview-seek');
+    previewSeek.max = String(project.duration);
+    previewSeek.value = String(current);
+    previewSeek.style.setProperty('--seek-progress', `${project.duration ? current / project.duration * 100 : 0}%`);
+    previewSeek.setAttribute('aria-valuetext', clock(current));
     if (popoutWindow) {
       const pipClock = popoutWindow.document.getElementById('pip-time');
       const pipSeek = popoutWindow.document.getElementById('pip-seek');
@@ -330,8 +350,9 @@
   function syncDraftPreview() {
     if (!project) return;
     const draft = Boolean(editState?.enabled && (editState.operations?.length || renderPending));
-    video.muted = draft;
-    video.controls = !popoutWindow && !draft;
+    video.muted = draft || userMuted;
+    video.controls = false;
+    updateVolumeUI(draft);
     stage.dataset.draft = String(draft);
     if (!draft) {
       sourceVideo.pause();
@@ -449,6 +470,7 @@
     document.body.dataset.playing = String(playing);
     $('play-label').textContent = playing ? 'Pause' : 'Play';
     $('play-button').setAttribute('aria-label', playing ? 'Pause movie' : 'Play movie');
+    $('play-button').setAttribute('aria-pressed', String(playing));
     if (popoutWindow) {
       const button = popoutWindow.document.getElementById('pip-play');
       if (button) button.textContent = playing ? 'Pause' : 'Play';
@@ -456,6 +478,17 @@
     cancelAnimationFrame(animation);
     if (playing) playbackTick();
     else updateTime();
+  }
+
+  function updateVolumeUI(draft = stage.dataset.draft === 'true') {
+    const silent = draft || userMuted || video.volume === 0;
+    const button = $('preview-mute');
+    button.classList.toggle('is-muted', silent);
+    button.setAttribute('aria-pressed', String(silent));
+    button.disabled = draft;
+    $('preview-volume').disabled = draft;
+    button.setAttribute('aria-label', draft ? 'Audio pending a fresh render' : silent ? 'Unmute preview' : 'Mute preview');
+    button.dataset.tip = draft ? 'Audio pending a fresh render' : silent ? 'Unmute preview' : 'Mute preview';
   }
 
   async function togglePlayback() {
@@ -933,6 +966,7 @@
     $('playhead').setAttribute('aria-valuemax', String(project.duration));
     pictureCuts = [...new Set([0, project.duration, ...project.tracks.filter((track) => track.kind === 'video' && !track.parked).flatMap((track) => track.clips.filter((clip) => !clip.hidden).flatMap((clip) => [clip.start, clip.end]))])].filter(Number.isFinite).sort((a, b) => a - b);
     $('show-parked').checked = Boolean(state.showParked);
+    setInspectorCollapsed(Boolean(state.inspectorCollapsed));
     renderTracks();
     renderMixWaveform();
     renderNotes();
@@ -1301,6 +1335,7 @@
       if (target.readyState < 1) { $('popout-status').textContent = 'Play the preview first, then pop it out.'; return; }
       try {
         await target.requestPictureInPicture();
+        $('popout-preview').setAttribute('aria-pressed', 'true');
         $('popout-status').textContent = 'Browser popout is open. Its controls may dim on hover.';
       } catch { $('popout-status').textContent = 'This browser could not open picture in picture.'; }
       return;
@@ -1309,6 +1344,7 @@
     try {
       const pip = await window.documentPictureInPicture.requestWindow({ width: 540, height: 400 });
       popoutWindow = pip;
+      $('popout-preview').setAttribute('aria-pressed', 'true');
       popoutHost = stage.parentElement;
       const style = pip.document.createElement('style');
       style.textContent = 'html,body{margin:0;height:100%;background:#101317;color:#f2f5f8;font:13px system-ui}body{display:flex;flex-direction:column}.video-stage{position:relative;flex:1;min-height:0;background:#07090b;display:flex;align-items:center;justify-content:center}.video-stage video{display:block;width:100%;height:100%;object-fit:contain}.video-stage #source-video{position:absolute;inset:0;background:#07090b}.video-stage[data-draft="true"] #review-video{visibility:hidden}.draft-preview-message{position:absolute;left:8px;right:8px;bottom:8px;padding:5px 8px;background:#142027ee;color:#fff;border-radius:4px;pointer-events:none}video[hidden],p[hidden]{display:none!important}.pip-controls{display:flex;align-items:center;gap:8px;padding:8px;background:#1b222b}.pip-controls button{background:#315b56;color:#fff;border:1px solid #588b83;border-radius:4px;padding:6px 12px;cursor:pointer}.pip-controls input{flex:1;min-width:0;accent-color:#79d6cc}.pip-controls output{font-variant-numeric:tabular-nums;white-space:nowrap}';
@@ -1340,14 +1376,65 @@
         if (popoutHost) popoutHost.append(stage);
         popoutHost = null;
         popoutWindow = null;
+        $('popout-preview').setAttribute('aria-pressed', 'false');
         $('popout-status').textContent = '';
         syncDraftPreview();
       }, { once: true });
       $('popout-status').textContent = 'Preview is in its own window.';
-    } catch { $('popout-status').textContent = 'This browser could not open the preview window.'; }
+    } catch { $('popout-preview').setAttribute('aria-pressed', 'false'); $('popout-status').textContent = 'This browser could not open the preview window.'; }
   }
 
   $('play-button').addEventListener('click', togglePlayback);
+  $('preview-seek').addEventListener('input', () => { seek(Number($('preview-seek').value)); revealCurrentTime(); });
+  $('preview-volume').addEventListener('input', () => {
+    video.volume = Number($('preview-volume').value);
+    if (video.volume > 0) lastAudibleVolume = video.volume;
+    userMuted = video.volume === 0;
+    video.muted = stage.dataset.draft === 'true' || userMuted;
+    updateVolumeUI();
+  });
+  $('preview-mute').addEventListener('click', () => {
+    if (userMuted || video.volume === 0) {
+      if (video.volume === 0) {
+        video.volume = lastAudibleVolume;
+        $('preview-volume').value = String(lastAudibleVolume);
+      }
+      userMuted = false;
+    } else userMuted = true;
+    video.muted = stage.dataset.draft === 'true' || userMuted;
+    updateVolumeUI();
+  });
+  const previewPanel = document.querySelector('.preview-panel');
+  $('preview-fullscreen').disabled = typeof previewPanel.requestFullscreen !== 'function';
+  $('preview-fullscreen').addEventListener('click', async () => {
+    try {
+      if (document.fullscreenElement === previewPanel) await document.exitFullscreen();
+      else await previewPanel.requestFullscreen();
+    } catch { $('popout-status').textContent = 'Full screen is unavailable in this browser.'; }
+  });
+  document.addEventListener('fullscreenchange', () => {
+    const full = document.fullscreenElement === previewPanel;
+    $('preview-fullscreen').setAttribute('aria-label', full ? 'Exit full screen' : 'Full screen preview');
+    $('preview-fullscreen').setAttribute('aria-pressed', String(full));
+    $('preview-fullscreen').dataset.tip = full ? 'Exit full screen' : 'Full screen';
+  });
+  $('toggle-inspector').addEventListener('click', () => setInspectorCollapsed(!inspectorCollapsed));
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('button');
+    if (!button || button.disabled) return;
+    if (lastClickedButton && lastClickedButton !== button) lastClickedButton.removeAttribute('data-clicked');
+    if (button.hasAttribute('aria-pressed') || button.hasAttribute('aria-expanded')) {
+      lastClickedButton = null;
+      return;
+    }
+    if (lastClickedButton === button) {
+      button.removeAttribute('data-clicked');
+      lastClickedButton = null;
+    } else {
+      button.dataset.clicked = 'true';
+      lastClickedButton = button;
+    }
+  });
   $('refresh-timeline').addEventListener('click', () => refreshTimeline(true));
   $('capcut-sync-open').addEventListener('click', openCapcutSyncReview);
   $('capcut-sync-close').addEventListener('click', () => $('capcut-sync-dialog').close());
@@ -1385,9 +1472,9 @@
   video.disablePictureInPicture = hasDocumentPip;
   sourceVideo.disablePictureInPicture = hasDocumentPip;
   if (hasDocumentPip || hasNativePip) $('popout-preview').hidden = false;
-  else { $('popout-preview').hidden = false; $('popout-preview').disabled = true; $('popout-preview').textContent = 'Popout unavailable in this browser'; }
+  else { $('popout-preview').hidden = false; $('popout-preview').disabled = true; $('popout-preview').setAttribute('aria-label', 'Pop out unavailable in this browser'); $('popout-preview').dataset.tip = 'Pop out unavailable in this browser'; }
   $('popout-preview').addEventListener('click', openPopout);
-  for (const element of [video, sourceVideo]) element.addEventListener('leavepictureinpicture', () => { $('popout-status').textContent = ''; });
+  for (const element of [video, sourceVideo]) element.addEventListener('leavepictureinpicture', () => { $('popout-preview').setAttribute('aria-pressed', 'false'); $('popout-status').textContent = ''; });
   $('copy-reference').addEventListener('click', copyReference);
   $('zoom-in').addEventListener('click', () => zoom(1.7));
   $('zoom-out').addEventListener('click', () => zoom(1 / 1.7));
