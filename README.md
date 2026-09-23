@@ -34,13 +34,6 @@ Watch the movie beside its picture and audio lanes. Zoom, scrub, mark a section 
 
 ![Madison desktop review with playback beneath the video and a compact timeline](https://github.com/broadsidecode/madison/releases/download/v0.5.0/madison-0.5.0-desktop.png)
 
-<details>
-<summary>Phone view</summary>
-
-![Madison phone review with compact playback controls](https://github.com/broadsidecode/madison/releases/download/v0.5.0/madison-0.5.0-mobile.png)
-
-</details>
-
 Your agent can handle larger revisions and render the final movie after your review.
 
 ## CapCut is optional
