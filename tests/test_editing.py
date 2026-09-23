@@ -39,7 +39,7 @@ class EditingTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
-        self.root = Path(temp.name)
+        self.root = Path(temp.name).resolve()
         self.bundle = self.root / "bundle"
         self.bundle.mkdir()
         self.project = self.root / "source.tsrct"
