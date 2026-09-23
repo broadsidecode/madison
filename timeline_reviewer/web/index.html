@@ -12,14 +12,15 @@
 <body data-loaded="false" data-current-seconds="0.000" data-playing="false" data-preview-height="340" data-zoom="1" data-range-start="" data-range-end="">
   <header class="app-header">
     <div><p class="eyebrow">MADISON</p><h1 id="project-title">Loading timeline</h1></div>
-    <div class="header-status"><span class="status-dot" aria-hidden="true"></span><span>Review only</span><span id="project-summary" class="muted">Loading timeline</span></div>
+    <div class="header-status"><span class="status-dot" aria-hidden="true"></span><span id="mode-label">Review only</span><span id="project-summary" class="muted">Loading timeline</span></div>
   </header>
   <main>
     <div id="error-message" class="error-message" role="alert" hidden></div>
     <section id="review-panel" class="review-panel" aria-label="Movie preview and clip details">
       <div class="preview-panel">
-        <div class="panel-heading"><h2>Preview</h2><span class="muted">Current rendered movie</span></div>
-        <div class="video-stage"><video id="review-video" controls playsinline preload="none" aria-label="Movie preview"></video></div>
+        <div class="panel-heading"><h2>Preview</h2><span id="preview-label" class="muted">Current rendered movie</span></div>
+        <div id="video-stage" class="video-stage"><video id="review-video" controls playsinline preload="none" aria-label="Movie preview"></video><video id="source-video" playsinline preload="metadata" muted aria-label="Draft source preview" hidden></video><p id="draft-preview-message" class="draft-preview-message" role="status" hidden></p></div>
+        <div class="preview-actions"><button id="popout-preview" type="button" hidden>Pop out preview</button><span id="popout-status" role="status"></span></div>
       </div>
       <aside class="inspector" aria-labelledby="inspector-title">
         <div class="panel-heading"><h2 id="inspector-title">Clip details</h2><span id="selected-track" class="badge">Select a clip</span></div>
@@ -36,6 +37,13 @@
             <div><dt>Clip reference</dt><dd id="clip-id"></dd></div>
           </dl>
           <button id="copy-reference" class="primary-button" type="button">Copy edit reference</button>
+          <div id="clip-edit-controls" class="clip-edit-controls" hidden>
+            <h4>Edit this clip</h4>
+            <div class="clip-edit-row"><button id="remove-clip" type="button">Remove clip</button><button id="restore-clip" type="button" hidden>Restore clip</button></div>
+            <form id="trim-form" class="clip-edit-form"><label>Start <input id="trim-start" type="number" min="0" step="0.001" inputmode="decimal" required></label><label>End <input id="trim-end" type="number" min="0" step="0.001" inputmode="decimal" required></label><button type="submit">Set trim</button></form>
+            <form id="volume-form" class="clip-edit-form"><label>Volume <input id="clip-volume" type="number" min="0" max="2" step="0.01" inputmode="decimal" required></label><button type="submit">Set volume</button><button id="mute-clip" type="button">Mute</button></form>
+            <p id="clip-edit-status" role="status"></p>
+          </div>
           <p id="copy-status" class="copy-status" role="status" aria-live="polite"></p>
           <textarea id="copy-fallback" aria-label="Edit reference to copy" readonly hidden></textarea>
         </div>
@@ -43,12 +51,13 @@
           <summary>Feedback</summary>
           <label for="review-note">What should change?</label>
           <textarea id="review-note" rows="3" maxlength="10000" placeholder="Describe the change for this moment or marked range."></textarea>
-          <div class="feedback-actions"><button id="copy-feedback" type="button" class="primary-button">Copy feedback</button><span>Kept in this page only</span></div>
+          <div class="feedback-actions"><button id="copy-feedback" type="button" class="primary-button">Copy feedback</button><span>Kept in this tab</span></div>
           <p id="feedback-status" class="copy-status" role="status" aria-live="polite"></p>
           <textarea id="feedback-fallback" aria-label="Feedback to copy" readonly hidden></textarea>
         </details>
       </aside>
     </section>
+    <div id="edit-toolbar" class="edit-toolbar" hidden><span id="edit-count">No changes queued</span><button id="undo-edit" type="button" disabled>Undo</button><button id="redo-edit" type="button" disabled>Redo</button><button id="apply-edits" type="button" class="primary-button" disabled>Apply changes</button><span id="edit-status" role="status" aria-live="polite"></span><div id="queued-edits" class="queued-edits"></div></div>
     <div id="preview-divider" role="separator" tabindex="0" aria-label="Resize preview. Drag or use up and down arrows. Double click to reset." aria-orientation="horizontal" aria-controls="review-panel" aria-valuemin="160" aria-valuemax="600" aria-valuenow="340"><span aria-hidden="true"></span></div>
     <section class="timeline-panel" aria-labelledby="timeline-title">
       <div class="transport">
@@ -56,7 +65,7 @@
         <div class="cut-controls" aria-label="Navigate the movie"><button id="previous-cut" type="button" aria-label="Previous picture cut" title="Previous picture cut">Cut &lsaquo;</button><button id="frame-back" type="button" aria-label="Previous frame" title="Previous frame. Left arrow">&#9664;</button><button id="frame-forward" type="button" aria-label="Next frame" title="Next frame. Right arrow">&#9654;</button><button id="next-cut" type="button" aria-label="Next picture cut" title="Next picture cut">Cut &rsaquo;</button></div>
         <form id="timecode-form" class="timecode-form"><label for="timecode-input">Time</label><input id="timecode-input" type="text" value="00:00.000" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Jump to time. Minutes, seconds and optional milliseconds." aria-describedby="timecode-status"><button id="jump-time" type="submit">Go</button></form>
         <label class="speed-control">Preview speed <select id="playback-rate" aria-label="Preview playback speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></label>
-        <span id="frame-rate" class="muted"></span><p id="timecode-status" role="status"></p>
+        <button id="refresh-timeline" type="button">Refresh timeline</button><span id="refresh-status" role="status" aria-live="polite"></span><span id="frame-rate" class="muted"></span><p id="timecode-status" role="status"></p>
       </div>
       <div class="range-toolbar" aria-label="Feedback range"><span class="range-heading">Feedback range</span><button id="mark-in" type="button" title="Mark in. I">Mark in <kbd>I</kbd></button><button id="mark-out" type="button" title="Mark out. O">Mark out <kbd>O</kbd></button><output id="range-display">No range marked</output><button id="clear-range" type="button" disabled>Clear</button><label class="loop-control"><input id="loop-range" type="checkbox" disabled>Loop range</label></div>
       <div class="timeline-toolbar">

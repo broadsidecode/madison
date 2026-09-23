@@ -4,7 +4,7 @@
 
 **A free review companion for Tesseract.**
 
-Your AI agent edits the video in [Tesseract](https://github.com/mirage-hq/Tesseract), built by [Mirage](https://mirage.app/tesseract). Madison gives you a timeline to watch, inspect, and give feedback on.
+Your AI agent edits the video in [Tesseract](https://github.com/mirage-hq/Tesseract), built by [Mirage](https://mirage.app/tesseract). Madison lets you review the timeline and make simple clip edits yourself.
 
 ## Get started
 
@@ -23,8 +23,9 @@ the official Tesseract instructions for anything missing.
 Explain any terms or system approval that needs my decision.
 
 Do the setup work for me and open a review in my browser.
-Show me how to watch it, zoom the timeline, mark a section,
-and copy feedback for you.
+If I have an editable Tesseract project, connect it to
+Madison so I can remove, trim and mute clips. Show me how
+to review, edit, undo, and apply a batch of changes.
 
 Keep my original files safe and my media local. Only use
 the optional CapCut importer if I ask. Finish with the
@@ -35,16 +36,16 @@ Tesseract needs a supported Windows or Mac computer. Your agent will check compa
 
 ## Review your edit
 
-Pop out the video, resize the clip, add it to another screen. View clip and audio lanes. Zoom in, scrub to a moment, or loop a section. Copy feedback with the exact clip or time range for your agent.
+Pop out the video onto another screen and resize its window. View picture and audio lanes, zoom in, and scrub to a moment. With a connected Tesseract project, remove, trim or mute simple clips and apply the batch. Copy precise feedback for anything your agent should handle.
 
 ![Madison reviewing an episode with video preview, audio waveform and multiple timeline lanes](images/viewer-demo.png)
 
-Your agent prepares the preview and timeline, makes your requested changes in Tesseract, then prepares an updated review. Madison does not edit the project itself. Copy your notes before closing the page.
+Madison saves your basic edits into a new Tesseract project version, preserving the previous version. Source clips can show a quick draft picture when their files are available. The final movie and soundtrack still need a fresh render before delivery. Copy any unsent notes before closing the page.
 
 ## Optional extras
 
 * [Bring a CapCut project](docs/experimental-importer.md). Experimental; some effects and audio details need rebuilding. No transfer back to CapCut.
-* [Review controls](docs/viewer-controls.md) and [manual setup](docs/manual-setup.md).
+* [Edit clips in Madison](docs/editing.md), [review controls](docs/viewer-controls.md) and [manual setup](docs/manual-setup.md).
 * [Technical details](docs/manifest.md) and [what we tested](docs/verification.md).
 
 Madison can also review prepared previews from other editing tools. It is free under the [MIT license](LICENSE). This is an independent community project, not an official Mirage product. Tesseract has its own [terms](https://github.com/mirage-hq/Tesseract/blob/main/TERMS.md), and your AI agent's normal usage costs still apply.

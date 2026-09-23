@@ -16,5 +16,7 @@ memory/
 review-bundles/
 private-media/
 *.tsrct
+.madison-edit-draft.json
+.madison-edit-draft.json.pending-*
 .DS_Store
 Thumbs.db

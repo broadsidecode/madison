@@ -73,3 +73,27 @@ body[data-panning="true"],body[data-panning="true"] *{cursor:grabbing!important;
 @media(max-width:1000px){.timeline-toolbar{flex-wrap:wrap}.timeline-tools{flex-wrap:wrap}.timeline-title{flex-shrink:0}.transport{gap:7px 10px}#frame-rate{font-size:10px}.timeline-options{padding-inline:12px}}
 @media(max-width:650px){.review-panel{height:auto;min-height:0}.preview-panel{height:var(--preview-height);flex:none}.video-stage{height:auto}.inspector{min-height:150px;max-height:370px;overflow:auto}.feedback-panel{padding-inline:16px}#empty-selection{padding:14px 16px}.timeline-panel{min-height:650px}.transport{justify-content:space-between}.playback-controls{flex:1;justify-content:space-between}.cut-controls{flex:1;justify-content:space-between}.cut-controls button{flex:1}.timecode-form{flex:none}.speed-control{margin-left:auto}#frame-rate{margin-left:0}.range-toolbar{gap:7px 8px}.range-heading{flex-basis:100%}.range-toolbar #range-display{margin-left:auto}.range-toolbar .loop-control{margin-left:auto}.timeline-tools{width:100%}.timeline-tools .search-label{flex:1 1 100%}.zoom-controls{flex:1;width:100%;justify-content:space-between}#zoom-slider{flex:1;width:auto;min-width:80px}.timeline-footer{flex-wrap:wrap;gap:7px 10px}.shortcut-help{margin-left:auto}.shortcut-help p{right:0;width:min(286px,calc(100vw - 30px))}#revision-label{max-width:none;flex-basis:100%;text-align:left}#preview-divider{height:16px;min-height:16px}}
 #project-notes{margin:0;padding-left:15px;max-width:min(65%,760px);max-height:78px;overflow:auto;overflow-wrap:anywhere;color:#c2cdd8;line-height:1.5}#project-notes li+li{margin-top:3px}.waveform-empty{display:block;position:sticky;left:calc(var(--label-width) + 12px);width:max-content;max-width:90%;padding:16px 12px;font-size:11px;pointer-events:none}@media(max-width:650px){#project-notes{max-width:100%;flex-basis:100%;max-height:100px}}
+
+/* Tesseract edits remain a small, clearly marked draft until the new movie is ready. */
+.video-stage{position:relative}
+#source-video{position:absolute;inset:0;background:#090d11;object-fit:contain;z-index:2}
+.video-stage[data-draft="true"] #review-video{visibility:hidden}
+.draft-preview-message{position:absolute;left:12px;right:12px;bottom:12px;z-index:3;max-width:600px;margin:auto;padding:7px 10px;border:1px solid #688b8a;border-radius:5px;background:#12262be8;color:#eaf9f6;font-size:11px;text-align:center;pointer-events:none}
+.preview-actions{display:flex;align-items:center;gap:8px;min-height:31px;padding:3px 12px;background:#171d23;border-top:1px solid #303741;color:#a7c4c0;font-size:11px}
+.preview-actions button{min-height:24px;padding:2px 8px;font-size:11px}
+.edit-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:7px 14px;border-bottom:1px solid #47726b;background:#19312e;color:#e0f5ee;font-size:11px}
+.edit-toolbar button{min-height:28px;padding:4px 9px;font-size:11px}
+#edit-count{font-weight:650;margin-right:5px}
+#edit-status{margin-left:auto;max-width:50%;line-height:1.4}
+.queued-edits{display:flex;flex-wrap:wrap;gap:5px;width:100%}
+.queued-edit{display:flex;align-items:center;gap:5px;max-width:100%;border:1px solid #54857c;background:#25443f;border-radius:4px;padding:2px 4px 2px 8px;overflow-wrap:anywhere}
+.queued-edit button{min-height:22px;padding:1px 6px;background:#335a53}
+.clip-edit-controls{border-top:1px solid #3a554f;margin-top:12px;padding-top:11px}
+.clip-edit-controls h4{font-size:12px;font-weight:650;margin:0 0 9px}
+.clip-edit-row,.clip-edit-form{display:flex;flex-wrap:wrap;align-items:end;gap:6px;margin-bottom:7px}
+.clip-edit-controls button{min-height:27px;padding:4px 8px;font-size:11px}
+.clip-edit-form label{display:flex;flex-direction:column;gap:3px;color:#becdc9;font-size:10px}
+.clip-edit-form input{width:90px;min-height:27px;padding:4px 6px;border:1px solid #5b726e;border-radius:4px;background:#111c1b;color:#e6faf5;font-size:11px;font-variant-numeric:tabular-nums}
+#clip-edit-status,#refresh-status{color:#b8dcd5;font-size:11px;line-height:1.35}
+.clip-edit-status:empty,#refresh-status:empty{display:none}
+@media(max-width:650px){.edit-toolbar{padding-inline:11px}#edit-status{margin-left:0;max-width:100%;width:100%}.draft-preview-message{font-size:10px;left:6px;right:6px;bottom:6px}}

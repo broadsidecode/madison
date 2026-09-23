@@ -16,6 +16,11 @@ def parser():
         item = commands.add_parser(name, help=help_text)
         if name == 'serve':
             item.add_argument('bundle', type=Path)
+            item.add_argument('--editable-project', type=Path,
+                              help='Optional local Tesseract document for limited timeline edits')
+            item.add_argument('--media-root', type=Path, action='append', default=[],
+                              help='Permit draft preview of source video within this trusted local folder; repeat as needed')
+            item.add_argument('--tesseract', help='Path to a separately installed Tesseract CLI')
         item.add_argument('--port', type=int, default=8765)
         item.add_argument('--open', action='store_true', help='Open the local URL in your default browser')
     item = commands.add_parser('validate', help='Validate a bundle and its referenced files')
@@ -45,9 +50,17 @@ def main(argv=None):
         if args.command in ('demo', 'serve'):
             from .server import make_server
             bundle = Path(__file__).resolve().parent / 'demo' if args.command == 'demo' else args.bundle
-            with make_server(bundle, args.port) as server:
+            edit_session = None
+            if args.command == 'serve' and args.editable_project:
+                from .editing import EditSession
+                edit_session = EditSession(bundle, args.editable_project,
+                                           cli=args.tesseract, media_roots=args.media_root or None)
+            elif args.command == 'serve' and (args.media_root or args.tesseract):
+                raise ValueError('--media-root and --tesseract require --editable-project')
+            with make_server(bundle, args.port, edit_session=edit_session) as server:
                 address = f'http://127.0.0.1:{server.server_port}/'
-                print(f'Madison: {address}\nRead only. Press Ctrl+C to stop.', flush=True)
+                mode = 'Limited local editing' if edit_session else 'Read only'
+                print(f'Madison: {address}\n{mode}. Press Ctrl+C to stop.', flush=True)
                 if args.open:
                     webbrowser.open(address)
                 try:

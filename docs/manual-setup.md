@@ -67,6 +67,8 @@ python -m timeline_reviewer validate "../my-review"
 python -m timeline_reviewer serve "../my-review"
 ```
 
+To edit basic clips in an existing Tesseract document, include the native layer IDs and matching ranges in the review bundle, then bind the project when starting the viewer. See [editing instructions](editing.md) for the exact command and limits. Review only mode remains available without Tesseract.
+
 Keep personal review bundles and media outside this repository. **Do not publish your own footage merely to use the viewer.**
 
 ## Optional experimental CapCut to Tesseract importer
@@ -97,7 +99,7 @@ Tesseract is supplied by Mirage under its own terms. Its binaries, skills and ve
 
 ## Local access and privacy
 
-The server binds only to IPv4 loopback. It exposes the application files and media explicitly referenced by a validated manifest. It does not expose the entire project directory and rejects write requests. There is no application upload endpoint or analytics integration.
+The server binds only to IPv4 loopback. Review only mode exposes the application files and media referenced by a validated manifest and rejects writes. The optional editing mode accepts a small set of local clip operations, serves approved source video from selected local folders, and saves a new native project version. Neither mode has an upload endpoint or analytics integration.
 
 Other processes on your computer can access a running loopback server. Stop it when finished. Do not expose the port through a proxy or tunnel for confidential work. Copied feedback includes the manifest's clip labels and revision information; review it before sharing.
 

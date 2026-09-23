@@ -49,6 +49,8 @@ Each lane needs a unique `id`, `name`, `kind` (`video` or `audio`) and `clips` a
 
 Each clip needs a globally unique `id`, `label`, `start`, `end`, `duration`, `sourceStart`, and `sourceEnd`. Optional fields are `layerId`, `sourceFilename`, `speed` (default 1), `hidden`, `volume`, `thumbnail`, and `colorPending`. Label text is treated as text, never as HTML. Use basenames rather than private absolute paths in `sourceFilename`.
 
+Limited editing requires the real native Tesseract `layerId` for each editable clip, matching clip IDs and ranges from the same project revision as the preview. The browser never accepts an arbitrary source path. The local agent may grant source preview access separately with the editing server's `--media-root` option; project source paths stay out of this public manifest.
+
 Waveform, when supplied, is `{"step": 0.1, "peaks": [0.1, 0.2, 0.15]}`. Samples are peak amplitudes in the range 0 to 1, spaced by `step` seconds from movie zero. Supply the mixed movie waveform, not an unrelated source stem. It is drawn in one separate mix lane and never presented as the waveform of every audio clip.
 
 ## Validation and resource limits

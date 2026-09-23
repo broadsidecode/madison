@@ -7,6 +7,8 @@ import mimetypes
 import re
 import os
 import socket
+import secrets
+import threading
 
 from .manifest import load_manifest, asset_files
 
@@ -24,18 +26,47 @@ class LocalServer(ThreadingHTTPServer):
         super().server_bind()
 
 
-def make_server(bundle, port=8765):
+def make_server(bundle, port=8765, edit_session=None):
     if isinstance(port, bool) or not isinstance(port, int) or not 0 <= port <= 65535:
         raise ValueError('Port must be an integer from 0 to 65535.')
     bundle = Path(bundle).resolve()
     manifest = load_manifest(bundle / 'data.json')
     approved = asset_files(bundle, manifest)
+    manifest_stamp = (bundle / 'data.json').stat().st_mtime_ns
+    manifest_cache = (manifest, approved, manifest_stamp)
+    edit_lock = threading.RLock()
+    edit_token = secrets.token_urlsafe(32)
+    source_token = secrets.token_urlsafe(24)
     fixed = {'/': WEB / 'index.html', '/index.html': WEB / 'index.html',
              '/app.js': WEB / 'app.js', '/styles.css': WEB / 'styles.css'}
     for file in fixed.values():
         if not file.is_file():
             raise ValueError(f'Application file is missing: {file.name}')
-    data = json.dumps(manifest, ensure_ascii=False, allow_nan=False).encode('utf-8')
+
+    def current_bundle():
+        nonlocal manifest_cache
+        stamp = (bundle / 'data.json').stat().st_mtime_ns
+        if stamp != manifest_cache[2]:
+            updated = load_manifest(bundle / 'data.json')
+            manifest_cache = (updated, asset_files(bundle, updated), stamp)
+        return manifest_cache[0], manifest_cache[1]
+
+    def edit_state():
+        if edit_session is None:
+            return {'enabled': False}
+        state = edit_session.state()
+        source_records = edit_session.source_files()
+        sources = {}
+        for clip_id, record in source_records.items():
+            sources[clip_id] = {'url': f'/edit-source/{source_token}/{clip_id}'}
+            if isinstance(record, dict) and record.get('transform') is not None:
+                sources[clip_id]['transform'] = record['transform']
+            if isinstance(record, dict) and record.get('canvas') is not None:
+                sources[clip_id]['canvas'] = record['canvas']
+        return {'enabled': True, 'revision': state['token'],
+                'sourceRevision': state['sourceRevision'], 'csrfToken': edit_token,
+                'operations': state['operations'], 'manifest': state['manifest'],
+                'sources': sources, 'renderPending': bool(state.get('renderPending', False))}
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.1'
@@ -63,20 +94,57 @@ def make_server(bundle, port=8765):
         def do_HEAD(self):
             self.send_file(True)
 
+        def do_POST(self):
+            route = self.route(False)
+            if route is None:
+                return
+            if edit_session is None or route not in ('/edit-draft', '/edit-commit'):
+                return self.reject_write()
+            expected_origin = f'http://127.0.0.1:{self.server.server_port}'
+            if self.headers.get('Origin') != expected_origin or self.headers.get('X-Madison-Edit-Token') != edit_token:
+                return self.message(403, 'Edit request was not authorized.')
+            if self.headers.get('Content-Type', '').split(';')[0].strip().lower() != 'application/json':
+                return self.message(415, 'Send JSON for edit requests.')
+            try:
+                length = int(self.headers.get('Content-Length', ''))
+                if length < 2 or length > 64 * 1024:
+                    raise ValueError('Edit request size is unsupported')
+                request = json.loads(self.rfile.read(length))
+                if not isinstance(request, dict) or not isinstance(request.get('revision'), str):
+                    raise ValueError('An edit revision is required')
+                with edit_lock:
+                    if route == '/edit-draft':
+                        if set(request) != {'revision', 'operations'} or not isinstance(request['operations'], list):
+                            raise ValueError('Supply a complete list of draft operations')
+                        edit_session.save_draft(request['operations'], request['revision'])
+                        result = edit_state()
+                    else:
+                        if set(request) != {'revision'}:
+                            raise ValueError('Supply the current draft revision')
+                        committed = edit_session.commit(request['revision'])
+                        result = edit_state()
+                        result['savedProject'] = str(committed['savedProject'])
+                        result['renderPending'] = True
+            except (ValueError, UnicodeError, json.JSONDecodeError) as exc:
+                return self.message(409, json.dumps({'error': str(exc)}), mime='application/json; charset=utf-8')
+            except OSError as exc:
+                return self.message(500, json.dumps({'error': str(exc)}), mime='application/json; charset=utf-8')
+            return self.message(200, json.dumps(result, ensure_ascii=False), mime='application/json; charset=utf-8')
+
         def reject_write(self):
             self.close_connection = True
             self.message(405, 'This viewer is read only.')
 
-        do_POST = reject_write
         do_PUT = reject_write
         do_PATCH = reject_write
         do_DELETE = reject_write
         do_OPTIONS = reject_write
 
-        def send_file(self, head):
+        def route(self, head):
             expected = f'127.0.0.1:{self.server.server_port}'
             if self.headers.get('Host') not in (expected, '127.0.0.1'):
-                return self.message(403, 'Use the IPv4 loopback address printed by the server.', head)
+                self.message(403, 'Use the IPv4 loopback address printed by the server.', head)
+                return None
             try:
                 if len(self.path) > 4096 or self.path.startswith('//'):
                     raise ValueError('Invalid request path')
@@ -84,21 +152,62 @@ def make_server(bundle, port=8765):
                 if '\x00' in route or '\\' in route or any(ord(c) < 32 for c in route):
                     raise ValueError('Invalid request path')
                 if '..' in route.split('/'):
-                    return self.message(403, 'Not available.', head)
+                    self.message(403, 'Not available.', head)
+                    return None
             except (ValueError, UnicodeError):
-                return self.message(400, 'Malformed request path.', head)
+                self.message(400, 'Malformed request path.', head)
+                return None
+            return route
+
+        def send_file(self, head):
+            route = self.route(head)
+            if route is None:
+                return
             if route == '/health':
-                return self.message(200, json.dumps({'service': 'timeline-reviewer', 'readOnly': True}), head, 'application/json')
+                return self.message(200, json.dumps({'service': 'timeline-reviewer', 'readOnly': edit_session is None}), head, 'application/json')
+            if route == '/edit-state':
+                with edit_lock:
+                    try:
+                        state = edit_state()
+                    except (ValueError, OSError) as exc:
+                        # A newer bundle can still be reviewed immediately. Disable
+                        # native edits until the agent binds its matching project.
+                        state = {'enabled': False, 'rebindRequired': True,
+                                 'error': str(exc)}
+                    return self.message(200, json.dumps(state, ensure_ascii=False), head, 'application/json; charset=utf-8')
             if route == '/data.json':
-                return self.message(200, data, head, 'application/json; charset=utf-8')
+                try:
+                    current, _ = current_bundle()
+                except (OSError, ValueError) as exc:
+                    return self.message(503, f'Review data is not ready: {exc}', head)
+                return self.message(200, json.dumps(current, ensure_ascii=False, allow_nan=False), head, 'application/json; charset=utf-8')
             if route == '/favicon.ico':
                 return self.message(204, b'', head, 'image/x-icon')
-            original = fixed.get(route) or approved.get(route)
+            source_route = route.startswith(f'/edit-source/{source_token}/')
+            source_original = None
+            if source_route and edit_session is not None:
+                clip_id = route.removeprefix(f'/edit-source/{source_token}/')
+                try:
+                    record = edit_session.source_files().get(clip_id)
+                except (ValueError, OSError):
+                    return self.message(503, 'The source preview is stale. Refresh the review.', head)
+                if record is not None:
+                    source_original = Path(record['path'] if isinstance(record, dict) else record)
+                    if source_original.suffix.lower() not in ('.mp4', '.webm', '.mov', '.m4v'):
+                        source_original = None
+            try:
+                _, approved = current_bundle()
+            except (OSError, ValueError) as exc:
+                return self.message(503, f'Review data is not ready: {exc}', head)
+            original = source_original or fixed.get(route) or approved.get(route)
             if original is None:
                 return self.message(404, 'Not found.', head)
             # Resolve again: a media symlink changed after startup must not escape.
             target = original.resolve()
-            allowed_root = WEB.resolve() if route in fixed else bundle
+            allowed_root = target.parent if source_original is not None else WEB.resolve() if route in fixed else bundle
+            if source_original is not None and not any(
+                    target.is_relative_to(root.resolve()) for root in edit_session.media_roots):
+                return self.message(403, 'Source media is outside the approved folders.', head)
             if not target.is_relative_to(allowed_root) or not target.is_file():
                 return self.message(403, 'Asset is no longer available.', head)
             try:

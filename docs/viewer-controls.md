@@ -1,12 +1,16 @@
 # Viewer controls
 
-Madison lets you inspect a rendered movie beside a timeline manifest and copy precise feedback. It does not change clips, source files, audio, or an editor project. Playback speed, zoom, the divider, selected clips, and feedback marks affect the review page only.
+Madison lets you inspect a rendered movie beside a timeline manifest and copy precise feedback. A normal review bundle is read only. When the local server is connected to a Tesseract project, Madison also offers a small set of reversible clip edits. Playback speed, zoom, the divider, selected clips, and feedback marks affect the review page only.
 
 Open the address printed by the review server. The page loads the manifest and any supplied images first. It requests the movie when you play or seek. Titles, lane names, timing, frame rate, notes, and clip details come from the manifest.
 
 ## Preview and layout
 
 Use **Play** or the movie's native controls to start and pause playback. **Preview speed** offers 0.5x, 1x, 1.5x, and 2x. This setting does not change the speed stored for any clip.
+
+**Refresh timeline** checks for a newer manifest and updates the page in place. Playback position, timeline zoom and scroll, selected clip when it still exists, divider height, feedback marks, note, parked lane setting, and preview speed remain where they were. The page checks for changes while visible. A full browser reload restores these view settings from that tab's session storage; positions beyond a shortened episode move to its new end. The note stays on this computer and is not sent to the server.
+
+In browsers with Document Picture in Picture, **Pop out preview** opens the same player in a small window with its own play button and seek bar. Its image does not dim when you move the pointer over it. Other browsers can use native picture in picture when supported; its browser controls may dim on hover. The button says **Popout unavailable in this browser** only when neither mode is supported. Closing the custom window returns the same player to Madison.
 
 Drag the divider between the preview and timeline to give either area more room. Double click it to reset the layout. With the divider focused, press **Arrow Up** or **Arrow Down** to resize it; hold **Shift** for larger steps. **Home** selects the smallest permitted preview and **End** selects the largest. The bounds adapt to the window size. On narrow screens the divider changes the preview height while the details panel stays below the movie.
 
@@ -35,7 +39,13 @@ Scrubbing temporarily pauses a playing movie and resumes it when you release the
 
 Video lanes use blue and teal. Separate audio lanes use amber. Picture clips may include their own dialogue. The **Final mix** waveform represents the supplied combined movie audio, not the isolated contents of each audio lane. Large waveform arrays are grouped by their strongest sample for display. If the manifest has no waveform, the lane says **No waveform supplied** and seeking still works.
 
-**Show parked takes** reveals lanes marked as parked. The header counts visible lanes and clips and reports the total parked clip count. Clips marked hidden use a dashed outline and a text label. These are manifest annotations; the preview remains the supplied rendered movie.
+**Show parked takes** reveals lanes marked as parked. The header counts visible lanes and clips and reports the total parked clip count. Clips marked hidden use a dashed outline and a text label. In a read only bundle, these are manifest annotations and the preview remains the supplied rendered movie.
+
+## Editing a bound Tesseract project
+
+When the header says **Tesseract editing**, select a clip to remove it without closing the gap, trim its beginning or end by timeline seconds, or change its volume from 0 to 2. Volume 0 mutes the clip. Removed clips are listed in the edit queue and can be restored there. **Undo** and **Redo** change the queued draft. Each draft action is saved to the local editing session. **Apply changes** writes the queued batch to the bound Tesseract project. Normal review bundles do not show these controls.
+
+The timeline reflects queued edits immediately. During a draft, Madison uses approved source files for an approximate picture preview when they are available. It explicitly labels final effects and audio as pending. Where no suitable source file is available, the picture area says a fresh render is needed. The old rendered movie is never presented as the edited picture or soundtrack. After applying edits, the final preview remains marked pending until a fresh render is available.
 
 **Find a clip** searches clip names, original source filenames when provided, clip identifiers, and lane names. Matching visible clips are highlighted. Matches in concealed parked lanes are counted separately so you can reveal them. Clearing the search restores normal emphasis.
 
@@ -53,7 +63,7 @@ Copied feedback includes your note, the current position, any marked range, the 
 
 A range needs an out point after its in point. If a new mark conflicts with the other endpoint, the other endpoint is cleared so you can set it again. **Clear** removes both endpoints and disables looping; it keeps your written note.
 
-Notes, marks, and view settings stay in the current page only. Reloading or closing the page clears them. Copy feedback before leaving if you want to keep it. Copying uses the clipboard or a manual text field; the viewer does not submit feedback to a server.
+Notes, marks, and view settings survive a reload in the current tab. Closing the tab may clear them. Copy feedback before leaving if you want to keep it elsewhere. Copying uses the clipboard or a manual text field; the viewer does not submit feedback to a server. When editing is enabled, only the explicit clip operations are sent to the local Tesseract editing session.
 
 ## Keyboard shortcuts
 

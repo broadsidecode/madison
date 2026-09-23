@@ -2,7 +2,7 @@
 
 Small improvements, accessibility fixes and synthetic bug reports are welcome.
 
-Keep the core viewer dependency light and usable without an editing engine. Do not add accounts, uploads, telemetry or project writing as incidental changes. Keep the optional importer clearly separated and conservative about unsupported features.
+Keep the core viewer dependency light and usable without an editing engine. Limit project writing to the explicit opt in editor, which saves a new version and preserves the selected project. Do not add accounts, uploads or telemetry as incidental changes. Keep the optional importer clearly separated and conservative about unsupported features.
 
 Before submitting a change:
 

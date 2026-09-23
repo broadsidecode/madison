@@ -3,11 +3,18 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const video = $('review-video');
+  const sourceVideo = $('source-video');
+  const stage = $('video-stage');
+  const previewMessage = $('draft-preview-message');
+  const hasDocumentPip = 'documentPictureInPicture' in window && typeof window.documentPictureInPicture.requestWindow === 'function';
+  const hasNativePip = Boolean(document.pictureInPictureEnabled && typeof video.requestPictureInPicture === 'function');
   const scroller = $('timeline-scroll');
   const content = $('timeline-content');
   const ruler = $('time-ruler');
   const clipElements = new Map();
   const trackElements = new Map();
+  const knownClipNames = new Map();
+  const baseClips = new Map();
   let project;
   let scale = 1;
   let fitScale = 1;
@@ -26,12 +33,61 @@
   let timecodeDirty = false;
   let pictureCuts = [];
   let rulerAnimation = null;
+  let editState = null;
+  let editBusy = false;
+  let undoStates = [];
+  let redoStates = [];
+  let refreshBusy = false;
+  let renderPending = false;
+  let sourceClipId = null;
+  const failedSourceUrls = new Set();
+  let popoutWindow = null;
+  let popoutHost = null;
+  let saveTimer = null;
+  const viewKey = `madison-view:${location.pathname}`;
 
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   const currentSeconds = () => pendingSeek ?? video.currentTime;
   const hasRange = () => rangeStart !== null && rangeEnd !== null && rangeEnd > rangeStart;
   const maxScale = () => Math.max(80, fitScale * 32);
   const calculateFitScale = () => Math.max(0.000001, Math.max(1, scroller.clientWidth - labelWidth() - 3) / project.duration);
+
+  function safeSourceUrl(value) {
+    if (typeof value !== 'string' || !value || value !== value.trim() || value.includes('\\') || /[\u0000-\u001f\u007f]/.test(value)) return '';
+    try {
+      const url = new URL(value, document.baseURI);
+      if (!['http:', 'https:'].includes(url.protocol) || url.origin !== location.origin || !url.pathname.startsWith(new URL('.', document.baseURI).pathname)) return '';
+      return url.href;
+    } catch { return ''; }
+  }
+
+  function saveViewState() {
+    if (!project || saveTimer) return;
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      try {
+        sessionStorage.setItem(viewKey, JSON.stringify({ time: currentSeconds(), scale, fitMode, scrollLeft: scroller.scrollLeft, scrollTop: scroller.scrollTop, selectedId: selected?.clip.id || null, previewHeight, rangeStart, rangeEnd, loop: $('loop-range').checked, note: $('review-note').value, playbackRate: Number($('playback-rate').value), playing: !video.paused && !video.ended, showParked: $('show-parked').checked }));
+      } catch { /* Storage can be unavailable in private browsing. */ }
+    }, 150);
+  }
+
+  function saveViewNow() {
+    if (!project) return;
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    try { sessionStorage.setItem(viewKey, JSON.stringify(captureView())); } catch { /* Storage is optional. */ }
+  }
+
+  function storedView() {
+    try {
+      const state = JSON.parse(sessionStorage.getItem(viewKey) || 'null');
+      return state && typeof state === 'object' && !Array.isArray(state) ? state : null;
+    } catch { return null; }
+  }
+
+  function captureView() {
+    return { time: currentSeconds(), scale, fitMode, scrollLeft: scroller.scrollLeft, scrollTop: scroller.scrollTop, selectedId: selected?.clip.id || null, previewHeight, rangeStart, rangeEnd, loop: $('loop-range').checked, note: $('review-note').value, playbackRate: Number($('playback-rate').value), playing: !video.paused && !video.ended, showParked: $('show-parked').checked };
+  }
 
   function previewBounds() {
     if (matchMedia('(max-width: 650px)').matches) return { min: 180, max: Math.max(300, Math.floor(innerHeight * 0.75)) };
@@ -49,6 +105,7 @@
     divider.setAttribute('aria-valuemax', String(bounds.max));
     divider.setAttribute('aria-valuenow', String(previewHeight));
     divider.setAttribute('aria-valuetext', `Preview height ${previewHeight} pixels`);
+    saveViewState();
   }
 
   function resetPreviewHeight() {
@@ -75,7 +132,7 @@
     if (typeof value !== 'string' || !value || value !== value.trim()) return '';
     try {
       const decoded = decodeURIComponent(value);
-      if (/^[\/\\]/.test(decoded) || /[\\:%?#\u0000-\u001f\u007f]/.test(decoded) || decoded.split('/').some((part) => part === '..')) return '';
+      if (decoded.startsWith('/') || decoded.includes('\\') || /[:%?#\u0000-\u001f\u007f]/.test(decoded) || decoded.split('/').some((part) => part === '..')) return '';
       const base = new URL('.', document.baseURI);
       const url = new URL(value, base);
       if (!['http:', 'https:'].includes(url.protocol) || url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) return '';
@@ -168,6 +225,15 @@
     }
     document.body.dataset.currentSeconds = current.toFixed(3);
     $('time-display').textContent = `${clock(current)} / ${clock(project.duration)}`;
+    if (popoutWindow) {
+      const pipClock = popoutWindow.document.getElementById('pip-time');
+      const pipSeek = popoutWindow.document.getElementById('pip-seek');
+      if (pipClock) pipClock.textContent = `${clock(current)} / ${clock(project.duration)}`;
+      if (pipSeek && popoutWindow.document.activeElement !== pipSeek) {
+        pipSeek.max = String(project.duration);
+        pipSeek.value = String(current);
+      }
+    }
     $('playhead').style.left = `${labelWidth() + current * scale}px`;
     $('playhead').style.visibility = current * scale < scroller.scrollLeft ? 'hidden' : 'visible';
     $('playhead').setAttribute('aria-valuenow', String(current));
@@ -184,6 +250,58 @@
         scroller.scrollLeft = Math.max(0, x - available * 0.2);
       }
     }
+    syncDraftPreview();
+    saveViewState();
+  }
+
+  function activePictureAt(second) {
+    for (const track of project.tracks) {
+      if (track.kind !== 'video' || track.parked) continue;
+      for (const clip of track.clips) {
+        if (!clip.hidden && clip.start <= second && second < clip.end) return clip;
+      }
+    }
+    return null;
+  }
+
+  function syncDraftPreview() {
+    if (!project) return;
+    const draft = Boolean(editState?.enabled && (editState.operations?.length || renderPending));
+    video.muted = draft;
+    video.controls = !popoutWindow && !draft;
+    stage.dataset.draft = String(draft);
+    if (!draft) {
+      sourceVideo.pause();
+      sourceVideo.hidden = true;
+      previewMessage.hidden = true;
+      $('preview-label').textContent = 'Current rendered movie';
+      return;
+    }
+    const clip = activePictureAt(Math.min(currentSeconds(), Math.max(0, project.duration - 0.001)));
+    const source = clip && editState.sources?.[clip.id];
+    const url = source && safeSourceUrl(source.url);
+    $('preview-label').textContent = 'Draft picture preview';
+    previewMessage.hidden = false;
+    if (!url || failedSourceUrls.has(url)) {
+      sourceVideo.pause();
+      sourceVideo.hidden = true;
+      sourceClipId = null;
+      previewMessage.textContent = clip ? 'Picture and audio pending a fresh render.' : 'No picture at this position. Audio pending a fresh render.';
+      return;
+    }
+    if (sourceClipId !== clip.id || sourceVideo.src !== url) {
+      sourceClipId = clip.id;
+      sourceVideo.src = url;
+    }
+    sourceVideo.hidden = false;
+    const sourceTime = clip.sourceStart + (currentSeconds() - clip.start) * clip.speed;
+    if (sourceVideo.readyState >= 1 && Number.isFinite(sourceTime) && Math.abs(sourceVideo.currentTime - sourceTime) > (video.paused ? 0.03 : 0.12)) {
+      try { sourceVideo.currentTime = Math.max(0, sourceTime); } catch { /* Wait for metadata. */ }
+    }
+    sourceVideo.playbackRate = clip.speed * Number($('playback-rate').value);
+    if (video.paused) sourceVideo.pause();
+    else if (sourceVideo.paused) sourceVideo.play().catch(() => {});
+    previewMessage.textContent = 'Approximate source picture. Audio and final effects pending a fresh render.';
   }
 
   function ensureMediaLoaded() {
@@ -268,6 +386,10 @@
     document.body.dataset.playing = String(playing);
     $('play-label').textContent = playing ? 'Pause' : 'Play';
     $('play-button').setAttribute('aria-label', playing ? 'Pause movie' : 'Play movie');
+    if (popoutWindow) {
+      const button = popoutWindow.document.getElementById('pip-play');
+      if (button) button.textContent = playing ? 'Pause' : 'Play';
+    }
     cancelAnimationFrame(animation);
     if (playing) playbackTick();
     else updateTime();
@@ -284,7 +406,7 @@
     }
   }
 
-  function selectClip(clip, track) {
+  function selectClip(clip, track, jump = true) {
     if (selected) clipElements.get(selected.clip.id)?.setAttribute('aria-pressed', 'false');
     selected = { clip, track };
     clipElements.get(clip.id)?.setAttribute('aria-pressed', 'true');
@@ -293,7 +415,8 @@
     $('selected-clip').dataset.clipId = clip.id;
     $('selected-track').textContent = track.name;
     $('clip-name').textContent = clip.label;
-    $('clip-state').textContent = `${track.parked ? 'Parked lane. ' : ''}${clip.hidden ? 'Marked hidden in the timeline.' : 'Included in the timeline.'}`;
+    const removed = editState?.operations?.some((op) => op.type === 'remove' && op.clipId === clip.id);
+    $('clip-state').textContent = removed ? 'Removed from this draft. Restore it before applying changes.' : `${track.parked ? 'Parked lane. ' : ''}${clip.hidden ? 'Marked hidden in the timeline.' : 'Included in the timeline.'}`;
     $('clip-edit-time').textContent = `${clock(clip.start)} to ${clock(clip.end)}`;
     $('clip-source-time').textContent = `${clock(clip.sourceStart)} to ${clock(clip.sourceEnd)}`;
     $('clip-duration').textContent = clock(clip.duration);
@@ -302,7 +425,99 @@
     $('clip-id').textContent = `${track.name} / Clip ${track.clips.indexOf(clip) + 1}`;
     $('copy-status').textContent = '';
     $('copy-fallback').hidden = true;
-    seek(clip.start);
+    updateEditInspector();
+    if (jump) seek(clip.start);
+  }
+
+  function updateEditInspector() {
+    const enabled = Boolean(editState?.enabled);
+    $('clip-edit-controls').hidden = !enabled || !selected;
+    if (!enabled || !selected) return;
+    const clip = selected.clip;
+    const ops = editState.operations || [];
+    const removed = ops.some((op) => op.type === 'remove' && op.clipId === clip.id);
+    $('remove-clip').hidden = removed;
+    $('restore-clip').hidden = !removed;
+    $('trim-form').hidden = removed;
+    $('trim-form').querySelector('button[type="submit"]').disabled = editBusy || clip.speed !== 1 || clip.layerId == null;
+    $('volume-form').hidden = removed;
+    for (const id of ['remove-clip', 'restore-clip', 'mute-clip']) $(id).disabled = editBusy || clip.layerId == null;
+    $('volume-form').querySelector('button[type="submit"]').disabled = editBusy || clip.layerId == null;
+    const trim = ops.find((op) => op.type === 'trim' && op.clipId === clip.id);
+    const volume = ops.find((op) => op.type === 'volume' && op.clipId === clip.id);
+    $('trim-start').value = String(trim?.start ?? clip.start);
+    $('trim-end').value = String(trim?.end ?? clip.end);
+    $('clip-volume').value = String(volume?.volume ?? clip.volume ?? 1);
+  }
+
+  function editLabel(op) {
+    const label = knownClipNames.get(op.clipId) || op.clipId;
+    if (op.type === 'remove') return `Remove ${label}`;
+    if (op.type === 'trim') return `Trim ${label} to ${clock(op.start)}–${clock(op.end)}`;
+    return `Set ${label} volume to ${Math.round(op.volume * 100)}%`;
+  }
+
+  function renderEditUI() {
+    const enabled = Boolean(editState?.enabled);
+    $('edit-toolbar').hidden = !enabled;
+    $('mode-label').textContent = enabled ? 'Tesseract editing' : 'Review only';
+    if (!enabled) return;
+    const ops = editState.operations || [];
+    $('edit-count').textContent = ops.length ? `${ops.length} change${ops.length === 1 ? '' : 's'} queued` : 'No changes queued';
+    $('undo-edit').disabled = editBusy || !undoStates.length;
+    $('redo-edit').disabled = editBusy || !redoStates.length;
+    $('apply-edits').disabled = editBusy || !ops.length;
+    const queue = $('queued-edits');
+    const fragment = document.createDocumentFragment();
+    for (const op of ops) {
+      const item = document.createElement('span');
+      item.className = 'queued-edit';
+      item.textContent = editLabel(op);
+      const revert = document.createElement('button');
+      revert.type = 'button';
+      revert.disabled = editBusy;
+      revert.textContent = 'Restore';
+      revert.setAttribute('aria-label', `Restore ${editLabel(op)}`);
+      revert.addEventListener('click', () => replaceOperations(ops.filter((entry) => entry !== op)));
+      item.append(revert);
+      fragment.append(item);
+    }
+    queue.replaceChildren(fragment);
+    updateEditInspector();
+  }
+
+  async function replaceOperations(operations, history = 'push') {
+    if (!editState?.enabled || editBusy) return;
+    const previous = editState.operations || [];
+    if (JSON.stringify(operations) === JSON.stringify(previous)) return;
+    editBusy = true;
+    $('edit-status').textContent = 'Saving draft…';
+    renderEditUI();
+    try {
+      const response = await fetch('./edit-draft', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', 'X-Madison-Edit-Token': editState.csrfToken }, body: JSON.stringify({ revision: editState.revision, operations }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `Draft rejected (HTTP ${response.status})`);
+      if (history === 'push') { undoStates.push(previous); redoStates = []; }
+      if (history === 'undo') { undoStates.pop(); redoStates.push(previous); }
+      if (history === 'redo') { redoStates.pop(); undoStates.push(previous); }
+      applyEditState(result);
+      $('edit-status').textContent = 'Draft saved. Review the picture, then apply changes.';
+    } catch (error) {
+      $('edit-status').textContent = `${error.message || 'Draft save failed'}. Changes were not applied.`;
+    } finally {
+      editBusy = false;
+      renderEditUI();
+    }
+  }
+
+  function setClipOperation(operation) {
+    if (!selected) return;
+    if (!Number.isInteger(selected.clip.layerId)) { $('clip-edit-status').textContent = 'This clip has no Tesseract layer reference, so it cannot be edited here.'; return; }
+    operation.layerId = selected.clip.layerId;
+    const existing = editState.operations || [];
+    const next = existing.filter((item) => !(item.type === operation.type && item.clipId === operation.clipId));
+    next.push(operation);
+    replaceOperations(next);
   }
 
   function referenceText() {
@@ -355,6 +570,7 @@
       if (rangeStart !== null && rangeStart >= rangeEnd) rangeStart = null;
     }
     renderRange();
+    saveViewState();
   }
 
   async function copyFeedback() {
@@ -386,6 +602,8 @@
 
   function renderTracks() {
     const fragment = document.createDocumentFragment();
+    clipElements.clear();
+    trackElements.clear();
     for (const track of project.tracks) {
       const row = document.createElement('div');
       row.className = `track-row ${track.kind === 'audio' ? 'audio-row' : 'video-row'}`;
@@ -403,12 +621,14 @@
       lane.className = 'track-lane';
       lane.setAttribute('aria-label', track.name);
       for (const clip of track.clips) {
+        knownClipNames.set(clip.id, clip.label);
+        const draftRemoved = editState?.operations?.some((op) => op.type === 'remove' && op.clipId === clip.id);
         const button = document.createElement('button');
-        button.className = `clip${clip.hidden ? ' hidden-clip' : ''}`;
+        button.className = `clip${clip.hidden ? ' hidden-clip' : ''}${draftRemoved ? ' removed-clip' : ''}`;
         button.type = 'button';
         button.dataset.clipId = clip.id;
         button.setAttribute('aria-pressed', 'false');
-        button.setAttribute('aria-label', `${track.name}, ${clip.label}, ${clock(clip.start)} to ${clock(clip.end)}${clip.hidden ? ', hidden' : ''}`);
+        button.setAttribute('aria-label', `${track.name}, ${clip.label}, ${clock(clip.start)} to ${clock(clip.end)}${draftRemoved ? ', removed in draft' : clip.hidden ? ', hidden' : ''}`);
         button.title = `${clip.label}\n${clock(clip.start)} to ${clock(clip.end)}${clip.hidden ? '\nHidden' : ''}`;
         if (clip.thumbnail && track.kind === 'video') {
           const img = document.createElement('img');
@@ -424,7 +644,7 @@
         text.textContent = clip.label;
         const time = document.createElement('span');
         time.className = clip.hidden ? 'hidden-tag' : 'clip-time';
-        time.textContent = clip.hidden ? 'Hidden' : clock(clip.start, false);
+        time.textContent = draftRemoved ? 'Removed' : clip.hidden ? 'Hidden' : clock(clip.start, false);
         button.append(text, time);
         button.addEventListener('click', () => selectClip(clip, track));
         lane.append(button);
@@ -462,12 +682,22 @@
       $('selected-track').textContent = 'Select a clip';
     }
     searchClips();
+    saveViewState();
   }
 
   function renderMixWaveform() {
     const waveform = project.waveform;
     const lane = $('mix-waveform');
+    const draftAudio = Boolean(editState?.enabled && (editState.operations?.length || renderPending));
+    document.querySelector('.mix-row .track-label strong').textContent = draftAudio ? 'Audio pending' : 'Final mix';
     lane.setAttribute('aria-valuemax', String(project.duration));
+    if (draftAudio) {
+      const message = document.createElement('span');
+      message.className = 'waveform-empty';
+      message.textContent = 'Fresh audio waveform pending render';
+      lane.replaceChildren(message);
+      return;
+    }
     if (!waveform?.peaks?.length || !(waveform.step > 0)) {
       const message = document.createElement('span');
       message.className = 'waveform-empty';
@@ -625,7 +855,239 @@
     $('search-count').textContent = query ? `${matches} visible${parkedMatches ? ` / ${parkedMatches} parked` : ''}` : '';
   }
 
+  function applyManifest(data, view = null, forceMovieReload = false) {
+    const state = view || (project ? captureView() : storedView()) || {};
+    const previousSelected = selected;
+    const previousSource = video.getAttribute('src');
+    const previousRevision = project?.revision;
+    project = validateManifest(data);
+    selected = null;
+    $('project-title').textContent = project.title;
+    document.title = `${project.title} | Madison`;
+    $('frame-rate').textContent = `${project.fps} fps`;
+    $('revision-label').textContent = `Revision ${project.revision || 'current'}`;
+    ruler.setAttribute('aria-valuemax', String(project.duration));
+    $('playhead').setAttribute('aria-valuemax', String(project.duration));
+    pictureCuts = [...new Set([0, project.duration, ...project.tracks.filter((track) => track.kind === 'video' && !track.parked).flatMap((track) => track.clips.filter((clip) => !clip.hidden).flatMap((clip) => [clip.start, clip.end]))])].filter(Number.isFinite).sort((a, b) => a - b);
+    $('show-parked').checked = Boolean(state.showParked);
+    renderTracks();
+    renderMixWaveform();
+    renderNotes();
+    fitScale = calculateFitScale();
+    fitMode = state.fitMode !== false;
+    scale = fitMode ? fitScale : clamp(Number(state.scale) || fitScale, fitScale, maxScale());
+    setPreviewHeight(Number.isFinite(Number(state.previewHeight)) ? Number(state.previewHeight) : previewHeight);
+    rangeStart = Number.isFinite(Number(state.rangeStart)) && state.rangeStart !== null ? clamp(Number(state.rangeStart), 0, project.duration) : null;
+    rangeEnd = Number.isFinite(Number(state.rangeEnd)) && state.rangeEnd !== null ? clamp(Number(state.rangeEnd), 0, project.duration) : null;
+    if (rangeStart !== null && rangeEnd !== null && rangeEnd <= rangeStart) rangeEnd = null;
+    $('loop-range').checked = Boolean(state.loop && hasRange());
+    if (typeof state.note === 'string') $('review-note').value = state.note;
+    const rate = Number(state.playbackRate);
+    if ([0.5, 1, 1.5, 2].includes(rate)) $('playback-rate').value = String(rate);
+    video.playbackRate = Number($('playback-rate').value);
+    pendingSeek = clamp(Number(state.time) || 0, 0, project.duration);
+    layoutTimeline();
+    scroller.scrollLeft = Math.max(0, Number(state.scrollLeft) || 0);
+    scroller.scrollTop = Math.max(0, Number(state.scrollTop) || 0);
+    renderRuler();
+    if (state.selectedId) {
+      let found = null;
+      for (const track of project.tracks) {
+        const clip = track.clips.find((entry) => entry.id === state.selectedId);
+        if (clip) { found = { clip, track }; break; }
+      }
+      if (found) selectClip(found.clip, found.track, false);
+      else if (previousSelected?.clip.id === state.selectedId && editState?.operations?.some((op) => op.type === 'remove' && op.clipId === state.selectedId)) selectClip(previousSelected.clip, previousSelected.track, false);
+    }
+    const nextSource = safeLocalUrl(project.videoUrl);
+    video.poster = project.posterUrl ? safeLocalUrl(project.posterUrl) : '';
+    if (forceMovieReload || previousSource !== nextSource || previousRevision !== project.revision) {
+      video.pause();
+      video.src = nextSource;
+      mediaLoadStarted = false;
+      if (state.playing) ensureMediaLoaded();
+    } else if (video.readyState >= 1) {
+      video.currentTime = pendingSeek;
+      pendingSeek = null;
+    }
+    $('play-button').disabled = false;
+    document.body.dataset.loaded = 'true';
+    updateTime(false);
+    renderEditUI();
+    if (state.playing) {
+      ensureMediaLoaded();
+      video.play().catch(() => { $('refresh-status').textContent = 'Preview paused. Press Play to resume.'; });
+    }
+    saveViewState();
+  }
+
+  function applyEditState(result, view = null) {
+    if (!result || result.enabled !== true || !result.manifest || !Array.isArray(result.operations) || typeof result.revision !== 'string') throw new Error('Invalid edit state from server');
+    const wasPending = renderPending;
+    editState = { ...editState, ...result, csrfToken: result.csrfToken || editState?.csrfToken };
+    if (!editState.csrfToken) throw new Error('Editing token unavailable');
+    renderPending = Boolean(result.renderPending);
+    if (!result.operations.length) {
+      baseClips.clear();
+      for (const track of result.manifest.tracks || []) for (const clip of track.clips || []) baseClips.set(clip.id, { ...clip });
+    }
+    applyManifest(result.manifest, view, wasPending && !renderPending);
+  }
+
+  async function refreshTimeline(force = false) {
+    if (refreshBusy || editBusy) return;
+    refreshBusy = true;
+    if (force) $('refresh-status').textContent = 'Checking for timeline changes…';
+    try {
+      const view = project ? captureView() : storedView();
+      const response = await fetch('./edit-state', { cache: 'no-store' });
+      let rebindMessage = '';
+      if (response.ok) {
+        const state = await response.json();
+        if (state.enabled) {
+          if (!editState) {
+            try {
+              const baseResponse = await fetch('./data.json', { cache: 'no-store' });
+              if (baseResponse.ok) {
+                const base = validateManifest(await baseResponse.json());
+                baseClips.clear();
+                for (const track of base.tracks) for (const clip of track.clips) baseClips.set(clip.id, { ...clip });
+              }
+            } catch { /* The bound session can still provide a draft picture. */ }
+          }
+          const changed = force || !editState || state.revision !== editState.revision || Boolean(state.renderPending) !== renderPending || state.manifest?.videoUrl !== project?.videoUrl || state.manifest?.revision !== project?.revision;
+          if (changed) {
+            if (editState && state.revision !== editState.revision && !force) { undoStates = []; redoStates = []; }
+            applyEditState(state, view);
+          }
+          else editState = { ...editState, csrfToken: state.csrfToken || editState.csrfToken };
+          if (force) $('refresh-status').textContent = changed ? 'Timeline refreshed at your position.' : 'Timeline is current.';
+          return;
+        }
+        if (state.rebindRequired) rebindMessage = 'Review updated. Reconnect its matching Tesseract project before editing.';
+      } else if (response.status !== 404) throw new Error(`Timeline check failed (HTTP ${response.status})`);
+      if (editState) { editState = null; renderPending = false; undoStates = []; redoStates = []; }
+      const manifestResponse = await fetch('./data.json', { cache: 'no-store' });
+      if (!manifestResponse.ok) throw new Error(`Timeline check failed (HTTP ${manifestResponse.status})`);
+      const data = validateManifest(await manifestResponse.json());
+      const changed = force || !project || project.revision !== data.revision || project.videoUrl !== data.videoUrl || project.duration !== data.duration;
+      if (changed) applyManifest(data, view);
+      else { renderEditUI(); syncDraftPreview(); }
+      if (rebindMessage) $('refresh-status').textContent = rebindMessage;
+      else if (force) $('refresh-status').textContent = changed ? 'Timeline refreshed at your position.' : 'Timeline is current.';
+    } catch (error) {
+      $('refresh-status').textContent = error.message || 'Refresh failed';
+      if (!project) { fail('Cannot load the timeline. Start the review server and check the review bundle.'); $('project-title').textContent = 'Timeline unavailable'; }
+    } finally { refreshBusy = false; }
+  }
+
+  async function commitEdits() {
+    if (!editState?.enabled || editBusy || !editState.operations?.length) return;
+    editBusy = true;
+    renderEditUI();
+    $('edit-status').textContent = 'Applying changes to Tesseract…';
+    try {
+      const response = await fetch('./edit-commit', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json', 'X-Madison-Edit-Token': editState.csrfToken }, body: JSON.stringify({ revision: editState.revision }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `Apply failed (HTTP ${response.status})`);
+      undoStates = [];
+      redoStates = [];
+      applyEditState({ ...result, enabled: true, operations: result.operations || [] });
+      $('edit-status').textContent = `Saved to Tesseract. ${result.renderPending ? 'Fresh picture and audio are pending.' : 'Preview is current.'}`;
+    } catch (error) { $('edit-status').textContent = `${error.message || 'Apply failed'}. The queued edits remain available.`; }
+    finally { editBusy = false; renderEditUI(); }
+  }
+
+  async function openPopout() {
+    if (!hasDocumentPip) {
+      if (!hasNativePip) return;
+      if (stage.dataset.draft === 'true' && sourceVideo.hidden) { $('popout-status').textContent = 'Picture preview is pending a fresh render.'; return; }
+      const target = stage.dataset.draft === 'true' && !sourceVideo.hidden ? sourceVideo : video;
+      if (target.readyState < 1) { $('popout-status').textContent = 'Play the preview first, then pop it out.'; return; }
+      try {
+        await target.requestPictureInPicture();
+        $('popout-status').textContent = 'Browser popout is open. Its controls may dim on hover.';
+      } catch { $('popout-status').textContent = 'This browser could not open picture in picture.'; }
+      return;
+    }
+    if (popoutWindow) { popoutWindow.focus(); return; }
+    try {
+      const pip = await window.documentPictureInPicture.requestWindow({ width: 540, height: 400 });
+      popoutWindow = pip;
+      popoutHost = stage.parentElement;
+      const style = pip.document.createElement('style');
+      style.textContent = 'html,body{margin:0;height:100%;background:#101317;color:#f2f5f8;font:13px system-ui}body{display:flex;flex-direction:column}.video-stage{position:relative;flex:1;min-height:0;background:#07090b;display:flex;align-items:center;justify-content:center}.video-stage video{display:block;width:100%;height:100%;object-fit:contain}.video-stage #source-video{position:absolute;inset:0;background:#07090b}.video-stage[data-draft="true"] #review-video{visibility:hidden}.draft-preview-message{position:absolute;left:8px;right:8px;bottom:8px;padding:5px 8px;background:#142027ee;color:#fff;border-radius:4px;pointer-events:none}video[hidden],p[hidden]{display:none!important}.pip-controls{display:flex;align-items:center;gap:8px;padding:8px;background:#1b222b}.pip-controls button{background:#315b56;color:#fff;border:1px solid #588b83;border-radius:4px;padding:6px 12px;cursor:pointer}.pip-controls input{flex:1;min-width:0;accent-color:#79d6cc}.pip-controls output{font-variant-numeric:tabular-nums;white-space:nowrap}';
+      pip.document.head.append(style);
+      pip.document.body.append(stage);
+      const controls = pip.document.createElement('div');
+      controls.className = 'pip-controls';
+      const play = pip.document.createElement('button');
+      play.id = 'pip-play';
+      play.type = 'button';
+      play.textContent = video.paused ? 'Play' : 'Pause';
+      play.addEventListener('click', togglePlayback);
+      const seekInput = pip.document.createElement('input');
+      seekInput.id = 'pip-seek';
+      seekInput.type = 'range';
+      seekInput.min = '0';
+      seekInput.max = String(project.duration);
+      seekInput.step = '0.001';
+      seekInput.value = String(currentSeconds());
+      seekInput.setAttribute('aria-label', 'Movie position');
+      seekInput.addEventListener('input', () => seek(Number(seekInput.value)));
+      const time = pip.document.createElement('output');
+      time.id = 'pip-time';
+      time.textContent = `${clock(currentSeconds())} / ${clock(project.duration)}`;
+      controls.append(play, seekInput, time);
+      pip.document.body.append(controls);
+      video.controls = false;
+      pip.addEventListener('pagehide', () => {
+        if (popoutHost) popoutHost.append(stage);
+        popoutHost = null;
+        popoutWindow = null;
+        $('popout-status').textContent = '';
+        syncDraftPreview();
+      }, { once: true });
+      $('popout-status').textContent = 'Preview is in its own window.';
+    } catch { $('popout-status').textContent = 'This browser could not open the preview window.'; }
+  }
+
   $('play-button').addEventListener('click', togglePlayback);
+  $('refresh-timeline').addEventListener('click', () => refreshTimeline(true));
+  $('remove-clip').addEventListener('click', () => { if (selected) setClipOperation({ type: 'remove', clipId: selected.clip.id }); });
+  $('restore-clip').addEventListener('click', () => { if (selected) replaceOperations(editState.operations.filter((op) => !(op.type === 'remove' && op.clipId === selected.clip.id))); });
+  $('trim-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!selected) return;
+    const start = Number($('trim-start').value);
+    const end = Number($('trim-end').value);
+    const base = baseClips.get(selected.clip.id) || selected.clip;
+    if (base.speed !== 1 || selected.clip.speed !== 1) { $('clip-edit-status').textContent = 'This clip uses changing speed. Trim it in Tesseract.'; return; }
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < base.start || end <= start || end > base.end) { $('clip-edit-status').textContent = 'Enter a start and end inside the original clip.'; return; }
+    const sourceStart = base.sourceStart + start - base.start;
+    const sourceEnd = base.sourceEnd - (base.end - end);
+    if (sourceStart < 0 || sourceEnd <= sourceStart) { $('clip-edit-status').textContent = 'That trim is outside the source footage.'; return; }
+    $('clip-edit-status').textContent = '';
+    setClipOperation({ type: 'trim', clipId: selected.clip.id, start, end, sourceStart, sourceEnd });
+  });
+  $('volume-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!selected) return;
+    const volume = Number($('clip-volume').value);
+    if (!Number.isFinite(volume) || volume < 0 || volume > 2) { $('clip-edit-status').textContent = 'Enter a volume from 0 to 2.'; return; }
+    $('clip-edit-status').textContent = '';
+    setClipOperation({ type: 'volume', clipId: selected.clip.id, volume });
+  });
+  $('mute-clip').addEventListener('click', () => { if (selected) setClipOperation({ type: 'volume', clipId: selected.clip.id, volume: 0 }); });
+  $('undo-edit').addEventListener('click', () => { if (undoStates.length) replaceOperations(undoStates.at(-1), 'undo'); });
+  $('redo-edit').addEventListener('click', () => { if (redoStates.length) replaceOperations(redoStates.at(-1), 'redo'); });
+  $('apply-edits').addEventListener('click', commitEdits);
+  video.disablePictureInPicture = hasDocumentPip;
+  sourceVideo.disablePictureInPicture = hasDocumentPip;
+  if (hasDocumentPip || hasNativePip) $('popout-preview').hidden = false;
+  else { $('popout-preview').hidden = false; $('popout-preview').disabled = true; $('popout-preview').textContent = 'Popout unavailable in this browser'; }
+  $('popout-preview').addEventListener('click', openPopout);
+  for (const element of [video, sourceVideo]) element.addEventListener('leavepictureinpicture', () => { $('popout-status').textContent = ''; });
   $('copy-reference').addEventListener('click', copyReference);
   $('zoom-in').addEventListener('click', () => zoom(1.7));
   $('zoom-out').addEventListener('click', () => zoom(1 / 1.7));
@@ -643,16 +1105,19 @@
     $('timecode-input').removeAttribute('aria-invalid');
     $('timecode-status').textContent = '';
   });
-  $('playback-rate').addEventListener('change', () => { video.playbackRate = Number($('playback-rate').value); });
+  $('playback-rate').addEventListener('change', () => { video.playbackRate = Number($('playback-rate').value); syncDraftPreview(); saveViewState(); });
+  $('review-note').addEventListener('input', saveViewState);
   $('mark-in').addEventListener('click', () => markRange('in'));
   $('mark-out').addEventListener('click', () => markRange('out'));
-  $('clear-range').addEventListener('click', () => { rangeStart = null; rangeEnd = null; renderRange(); });
+  $('clear-range').addEventListener('click', () => { rangeStart = null; rangeEnd = null; renderRange(); saveViewState(); });
   $('loop-range').addEventListener('change', () => {
     if ($('loop-range').checked && hasRange() && (currentSeconds() >= rangeEnd || currentSeconds() < rangeStart)) seek(rangeStart);
   });
   $('copy-feedback').addEventListener('click', copyFeedback);
   $('clip-search').addEventListener('input', () => { if (project) searchClips(); });
   $('show-parked').addEventListener('change', updateLaneVisibility);
+  addEventListener('pagehide', saveViewNow);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveViewNow(); });
   for (const element of [ruler, $('mix-waveform'), $('playhead')]) {
     element.addEventListener('pointerdown', startScrub);
     element.addEventListener('pointermove', moveScrub);
@@ -765,6 +1230,8 @@
     if (pendingSeek !== null) seek(pendingSeek);
     updateTime();
   });
+  sourceVideo.addEventListener('loadedmetadata', syncDraftPreview);
+  sourceVideo.addEventListener('error', () => { if (sourceVideo.currentSrc) failedSourceUrls.add(sourceVideo.currentSrc); if (stage.dataset.draft === 'true') { sourceVideo.hidden = true; previewMessage.textContent = 'Source preview unavailable. Picture and audio pending a fresh render.'; } });
   video.addEventListener('error', () => {
     $('play-button').disabled = true;
     fail('The preview movie could not be loaded. Check videoUrl, confirm that the media file exists, and use a video format supported by your browser. The timeline remains available.');
@@ -787,39 +1254,8 @@
     }
   }).observe(scroller);
 
-  async function init() {
-    let loadMessage = 'Cannot reach data.json. Start the review server and open the HTTP address it provides.';
-    try {
-      const response = await fetch('./data.json', { cache: 'no-store' });
-      loadMessage = `Cannot load data.json (HTTP ${response.status}). Confirm the server is serving a valid review bundle.`;
-      if (!response.ok) throw new Error('Manifest request failed');
-      loadMessage = 'data.json is not valid JSON. Check the manifest syntax, then reload this page.';
-      const data = await response.json();
-      project = validateManifest(data);
-      loadMessage = 'The timeline could not be displayed. Validate the review bundle, then reload this page.';
-      $('project-title').textContent = project.title;
-      document.title = `${project.title} | Madison`;
-      $('frame-rate').textContent = `${project.fps} fps`;
-      $('revision-label').textContent = 'Timeline snapshot';
-      ruler.setAttribute('aria-valuemax', String(project.duration));
-      $('playhead').setAttribute('aria-valuemax', String(project.duration));
-      pictureCuts = [...new Set([0, project.duration, ...project.tracks.filter((track) => track.kind === 'video' && !track.parked).flatMap((track) => track.clips.filter((clip) => !clip.hidden).flatMap((clip) => [clip.start, clip.end]))])].filter(Number.isFinite).sort((a, b) => a - b);
-      renderTracks();
-      renderMixWaveform();
-      renderNotes();
-      fitTimeline();
-      if (project.posterUrl) video.poster = safeLocalUrl(project.posterUrl);
-      video.src = safeLocalUrl(project.videoUrl);
-      $('play-button').disabled = false;
-      document.body.dataset.loaded = 'true';
-    } catch (error) {
-      project = null;
-      $('play-button').disabled = true;
-      fail(error instanceof Error && error.message.startsWith('Manifest ') ? `${error.message} Fix data.json, then reload this page.` : loadMessage);
-      $('project-summary').textContent = 'Timeline unavailable';
-      $('project-title').textContent = 'Timeline unavailable';
-    }
-  }
+  async function init() { await refreshTimeline(); }
   resetPreviewHeight();
   init();
+  setInterval(() => { if (project && document.visibilityState === 'visible') refreshTimeline(); }, 5000);
 })();

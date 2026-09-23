@@ -26,7 +26,7 @@ Start the bundled synthetic demo to check Madison independently of the engine. R
 
 For an existing Tesseract project, work from a copy and inspect its native editable data through the installed official CLI. For new footage, use the official Tesseract workflow after agreeing on the edit.
 
-Madison does not open a .tsrct file directly. Prepare a rendered preview and matching lane metadata using the [bundle format](docs/manifest.md). Derive timing, source ranges, visibility and identities from the same native project revision as the render. Respect nested parent timing and retimes; do not present guessed timing as exact. Use the actual render duration and frame rate, and the rendered mix for the waveform.
+Madison can bind a .tsrct project for limited editing, but it still needs a rendered preview and matching lane metadata using the [bundle format](docs/manifest.md). Derive layer IDs, timing, source ranges, visibility and identities from the same native project revision as the render. Respect nested parent timing and retimes; do not present guessed timing as exact. Use the actual render duration and frame rate, and the rendered mix for the waveform. Follow the [editing guide](docs/editing.md) when the user wants to make edits in Madison.
 
 The preparation command creates one full movie clip if no lane metadata is supplied. Explain that limitation when using it. Only call the result a detailed timeline review when matching lane data has been supplied and checked. There is no automatic native project converter, live connection or background synchronization in this release.
 
@@ -38,7 +38,7 @@ Serve the bundle on an available port bound to 127.0.0.1. Respect the host's por
 
 Check playback, clip selection and seeking, zoom, divider resizing, range marking, looping and copied feedback. Inspect the rendered screen when browser tools are available. Otherwise report browser verification as pending and give the user a short manual check.
 
-Explain the loop: the agent edits in Tesseract and prepares a review; the user watches, marks a moment and copies feedback; the agent revises the edit and prepares a new review. Browser controls do not modify the project or automatically refresh its render. Notes live in the current page and must be copied before closing it.
+Explain the loop: the agent prepares a review; the user watches and makes simple draft edits in Madison or copies feedback; the agent handles complex revisions. Applying basic edits creates a new Tesseract project version, but the rendered movie and soundtrack remain pending until a fresh export. Madison refreshes the timeline in place when new review data arrives. Notes remain in the current browser session; copy any unsent feedback before closing it.
 
 Finish with the working URL, project and review locations, simple reopening and shutdown instructions, what you checked, and any remaining limitation. Keep command dumps out of ordinary conversation.
 

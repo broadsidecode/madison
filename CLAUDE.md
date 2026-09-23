@@ -1,12 +1,12 @@
 # Madison contributor guide
 
-Madison is a local timeline review companion for Tesseract, with an optional experimental CapCut importer. The viewer is read only and can also review exports from other tools.
+Madison is a local timeline review companion for Tesseract, with limited opt in editing and an optional experimental CapCut importer. Review only mode remains the default and also works with exports from other tools.
 
 ## Scope
 - Keep the viewer independent of proprietary editing engines.
 - Never edit a source editor project. Import into a new destination.
 - Do not publish personal footage, project archives, absolute local paths, credentials, or generated review bundles.
-- The application serves only explicitly approved bundle assets on IPv4 loopback.
+- Review mode serves only validated bundle assets on IPv4 loopback. Editable mode may also serve explicitly approved local source videos from selected media roots and must reject cross origin writes.
 - Keep changes scoped and preserve keyboard and pointer accessibility.
 
 ## Validation

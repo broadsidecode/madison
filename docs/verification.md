@@ -29,3 +29,13 @@ This smoke test did not render a movie. It does not establish audio export accur
 The repository's GitHub Actions workflow runs the Python suite, JavaScript syntax check and demo validation on Windows, macOS and Ubuntu with Python 3.10 and 3.13. Check the Actions tab for the result of the specific revision you use. Optional FFmpeg and symlink cases skip where their prerequisites are unavailable. Native Tesseract is not installed in CI; importer tests use a synthetic mocked engine.
 
 No runtime Python packages, npm packages, editor binaries or vendor plugin resources are bundled. FFmpeg preparation and native Tesseract conversion are optional, separately installed tools.
+
+## Limited editing checks
+
+The native edit engine has focused synthetic tests for clip removal, range trimming, volume, changed projects, persistent drafts, duplicate native layer references and malformed animation metadata. The full local Python suite ran 69 tests, with one skipped because this Windows host could not create symlinks.
+
+A local Tesseract 0.1.0 smoke test used only synthetic footage. It applied a batch to a new native project, read back the edited ranges and volume, confirmed every untouched native field and the original file were unchanged, then recovered the saved version after reopening the editor session. Repeated viewer polls reused the native file hash while fresh commits forced a new hash. Native rendering was not part of that smoke test.
+
+The read only demo passed governed rendered layout checks. An editable synthetic bundle passed browser interaction checks for remove, restore, undo, redo, draft source picture, reload state and a custom picture in picture window. A separate external review update kept the selected clip, note, zoom and playhead in place while its movie and duration changed; editing paused until a matching native project could be reconnected. The governed scan of the editable example flagged canceled video range requests during seeking as network failures. Its source frame rendered and the interaction checks passed; the scan is not counted as a clean editable mode PASS.
+
+Browser picture in picture support can differ by browser. The custom window was exercised in a headless Chromium test; visible Edge behavior is not established by that result. A pending draft movie is an approximation until a fresh final export is reviewed.
