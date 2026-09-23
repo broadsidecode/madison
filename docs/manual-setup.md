@@ -10,21 +10,30 @@ Watch a rendered movie, inspect its video and audio lanes, mark a range, and cop
 
 For setup through an agent, use the [prompt on the front page](../README.md). These instructions are for manual setup.
 
-Install Python 3.10 or newer, download this repository, and open a terminal in its folder:
+Install Python 3.10 or newer and download this repository. On Windows, double click `start-review.cmd`. On macOS or Linux, open a terminal in the folder and run:
 
 ```sh
-python -m timeline_reviewer demo --open
+bash start-review.sh
 ```
 
-On macOS or Linux, use `python3` if `python` is not available. Windows users can also run `start-review.cmd`; macOS and Linux users can run `bash start-review.sh`.
+Both scripts use the single instance launcher. Repeated or simultaneous starts reuse the same healthy Madison process. The launcher refuses to stop unrelated software on the port and refuses to restart Madison while an import, render, or unapplied edit is active.
 
-The bundled demo uses a synthetic test pattern and a quiet generated tone. It requires no editor, account, API key, Python package installation, or cloud service. Keep the terminal open while reviewing; press Ctrl+C to stop the server.
+The bundled demo uses a synthetic test pattern and a quiet generated tone. It requires no editor, account, API key, Python package installation, or cloud service. The launcher starts Madison in the background and then exits. Run `python -m timeline_reviewer stop` to stop the owned server when no import, render, or unapplied edit is active.
 
-The local address is **http://127.0.0.1:8765/**. If that port is occupied, choose another explicitly:
+The launcher uses **http://127.0.0.1:8464/**. Private configuration, process identity, logs, and rollback selection live in the operating system application data folder, outside this repository. A release ZIP works without Git.
+
+To select a prepared review before launching, run this from the Madison folder:
 
 ```sh
-python -m timeline_reviewer demo --port 8766 --open
+python -m timeline_reviewer configure --mode serve --bundle "/path/to/review"
+python -m timeline_reviewer launch
 ```
+
+Add the editing and CapCut options described below when you need those connections. The selection persists across restarts. Run `python -m timeline_reviewer configure --mode demo` to return to the portable synthetic demo.
+
+The launcher records the previous application and configuration before a configuration, application, or running build replacement. A maintainer can select a verified application folder with `python -m timeline_reviewer select-app "/path/to/Madison"`. `python -m timeline_reviewer rollback --launch` restores the previous application and configuration without moving, rewriting, or deleting project data. If no rollback has been recorded, it stops with an error.
+
+The older `demo` and `serve` commands remain available for contributors who need a foreground process on an explicitly chosen port. They do not provide single instance ownership or persisted selection.
 
 ## Review controls
 

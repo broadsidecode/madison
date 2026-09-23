@@ -1,18 +1,24 @@
 """Local read-only viewer server. It never exposes a whole project directory."""
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 import json
+from hashlib import sha256
 import mimetypes
 import re
 import os
 import socket
 import secrets
 import threading
+import time
+from datetime import datetime, timezone
 
+from .identity import capture_runtime_identity, source_drift
 from .manifest import load_manifest, asset_files
 
 WEB = Path(__file__).resolve().parent / 'web'
+HEARTBEAT_FRESH_SECONDS = 15
 
 
 class LocalServer(ThreadingHTTPServer):
@@ -26,7 +32,8 @@ class LocalServer(ThreadingHTTPServer):
         super().server_bind()
 
 
-def make_server(bundle, port=8765, edit_session=None, capcut_sync=None):
+def make_server(bundle, port=8765, edit_session=None, capcut_sync=None,
+                runtime_identity=None, shutdown_token=None):
     if isinstance(port, bool) or not isinstance(port, int) or not 0 <= port <= 65535:
         raise ValueError('Port must be an integer from 0 to 65535.')
     bundle = Path(bundle).resolve()
@@ -37,11 +44,76 @@ def make_server(bundle, port=8765, edit_session=None, capcut_sync=None):
     edit_lock = threading.RLock()
     edit_token = secrets.token_urlsafe(32)
     source_token = secrets.token_urlsafe(24)
-    fixed = {'/': WEB / 'index.html', '/index.html': WEB / 'index.html',
-             '/app.js': WEB / 'app.js', '/styles.css': WEB / 'styles.css'}
-    for file in fixed.values():
+    heartbeat_token = secrets.token_urlsafe(32)
+    web_paths = {'index': WEB / 'index.html', 'app': WEB / 'app.js',
+                 'styles': WEB / 'styles.css'}
+    for file in web_paths.values():
         if not file.is_file():
             raise ValueError(f'Application file is missing: {file.name}')
+    web_snapshot = {name: path.read_bytes() for name, path in web_paths.items()}
+    captured = capture_runtime_identity()
+    if runtime_identity is not None:
+        if not isinstance(runtime_identity, dict):
+            raise ValueError('Runtime identity must be a JSON object.')
+        captured.update({key: runtime_identity[key] for key in (
+            'protocolVersion', 'version', 'buildId', 'startIdentity', 'instanceId',
+            'startedAt', 'pid', 'configFingerprint', 'installType', 'source', 'github',
+            'projectLabel') if key in runtime_identity})
+    runtime = json.loads(json.dumps(captured))
+    for required in ('version', 'buildId', 'instanceId'):
+        if (not isinstance(runtime.get(required), str) or
+                not re.fullmatch(r'[A-Za-z0-9._-]{1,128}', runtime[required])):
+            raise ValueError(f'Runtime identity is missing {required}.')
+    runtime.setdefault('protocolVersion', 1)
+    runtime.setdefault('startIdentity', runtime['buildId'])
+    runtime.setdefault('startedAt', datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'))
+    runtime.setdefault('pid', os.getpid())
+    runtime.setdefault('configFingerprint', None)
+    runtime.setdefault('installType', 'portable')
+    runtime.setdefault('source', {'commit': None, 'branch': None, 'localChanges': False,
+                                  'drift': False, 'manifestVerified': False})
+    runtime.setdefault('github', {'status': 'not_verified', 'checkedAt': None})
+    build_query = runtime['buildId']
+    index = web_snapshot['index'].decode('utf-8')
+    index = index.replace('href="./styles.css"', f'href="./styles.css?v={build_query}"')
+    index = index.replace('src="./app.js"', f'src="./app.js?v={build_query}"')
+    runtime_meta = (f'<meta name="madison-version" content="{runtime["version"]}">'
+                    f'<meta name="madison-build" content="{runtime["buildId"]}">'
+                    f'<meta name="madison-instance" content="{runtime["instanceId"]}">')
+    anchor = '<meta name="madison-runtime-anchor">'
+    index = index.replace(anchor, runtime_meta) if anchor in index else index.replace('</head>', f'  {runtime_meta}\n</head>')
+    web_snapshot['index'] = index.encode('utf-8')
+    asset_hashes = {'index.html': sha256(web_snapshot['index']).hexdigest(),
+                    'app.js': sha256(web_snapshot['app']).hexdigest(),
+                    'styles.css': sha256(web_snapshot['styles']).hexdigest()}
+    fixed = {'/': ('index', 'text/html; charset=utf-8'),
+             '/index.html': ('index', 'text/html; charset=utf-8'),
+             '/app.js': ('app', 'application/javascript; charset=utf-8'),
+             '/styles.css': ('styles', 'text/css; charset=utf-8')}
+    browser_lock = threading.Lock()
+    browser_clients = {}
+
+    def browser_snapshot():
+        now = time.monotonic()
+        with browser_lock:
+            expired = [key for key, value in browser_clients.items()
+                       if now - value['_seenMonotonic'] > HEARTBEAT_FRESH_SECONDS or
+                       now < value['_seenMonotonic']]
+            for key in expired:
+                del browser_clients[key]
+            clients = [dict(value) for value in browser_clients.values()]
+        current = [value for value in clients if not value['stale']]
+        feature_names = ('versionStatus', 'projectStatus', 'capcutControl')
+        features = {name: any(value['features'][name] for value in current)
+                    for name in feature_names}
+        verified = any(all(value['features'][name] for name in feature_names)
+                       for value in current)
+        newest = max(clients, key=lambda value: value['_seenMonotonic']) if clients else None
+        return {'connected': bool(clients), 'verified': verified,
+                'stale': any(value['stale'] for value in clients),
+                'lastSeenAt': newest['lastSeenAt'] if newest else None,
+                'unappliedEdits': any(value['unappliedEdits'] for value in clients),
+                'features': features, 'clientCount': len(clients)}
 
     def current_bundle():
         nonlocal manifest_cache
@@ -102,10 +174,65 @@ def make_server(bundle, port=8765, edit_session=None, capcut_sync=None):
             edit_session = updated
             return True
 
+    def activity_state():
+        operations, render_pending = [], False
+        if edit_session is not None:
+            try:
+                state = edit_session.state()
+                operations = state.get('operations') or []
+                render_pending = bool(state.get('renderPending', False))
+            except (OSError, ValueError, AttributeError):
+                # Unknown editor state is not safe to restart.
+                operations = [None]
+        sync_state = 'idle'
+        if capcut_sync is not None:
+            try:
+                sync_state = capcut_sync.status().get('state', 'unknown')
+            except (OSError, ValueError, AttributeError):
+                sync_state = 'unknown'
+        browser_dirty = bool(browser_snapshot()['unappliedEdits'])
+        restart_safe = not operations and not render_pending and not browser_dirty and sync_state in ('idle', 'complete', 'failed')
+        return {'capcutSync': sync_state, 'unappliedEdits': bool(operations or browser_dirty),
+                'renderPending': render_pending, 'restartSafe': restart_safe}
+
+    def public_runtime_status():
+        source = runtime.get('source') if isinstance(runtime.get('source'), dict) else {}
+        public_source = {key: source.get(key) for key in (
+            'commit', 'branch', 'localChanges', 'manifestVerified')}
+        public_source['drift'] = source_drift(runtime)
+        github = runtime.get('github') if isinstance(runtime.get('github'), dict) else {}
+        github_status = github.get('status')
+        if github_status not in ('current', 'different', 'ahead', 'behind', 'diverged', 'not_verified'):
+            github_status = 'not_verified'
+        browser = browser_snapshot()
+        current, _ = current_bundle()
+        public_github = {'status': github_status,
+                         'checkedAt': github.get('checkedAt') if isinstance(github.get('checkedAt'), str) else None}
+        for key in ('mainMatches', 'releaseMatches'):
+            if isinstance(github.get(key), bool):
+                public_github[key] = github[key]
+        if isinstance(github.get('releaseTag'), str):
+            public_github['releaseTag'] = github['releaseTag']
+        return {
+            'protocolVersion': runtime['protocolVersion'], 'version': runtime['version'],
+            'buildId': runtime['buildId'], 'instanceId': runtime['instanceId'],
+            'startIdentity': runtime['startIdentity'], 'startedAt': runtime['startedAt'],
+            'pid': runtime['pid'], 'configFingerprint': runtime['configFingerprint'],
+            'installType': runtime['installType'],
+            'projectLabel': runtime.get('projectLabel') or current.get('title') or 'Untitled project',
+            'source': public_source,
+            'modes': {'review': True, 'editing': edit_session is not None,
+                      'capcutSync': capcut_sync is not None},
+            'activity': activity_state(),
+            'assets': dict(asset_hashes),
+            'github': public_github,
+            'browser': browser,
+        }
+
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.1'
 
-        def base_headers(self, status, length, mime):
+        def base_headers(self, status, length, mime, extra_headers=None):
             self.send_response(status)
             self.send_header('Content-Length', str(length))
             self.send_header('Content-Type', mime)
@@ -114,10 +241,12 @@ def make_server(bundle, port=8765, edit_session=None, capcut_sync=None):
             self.send_header('Referrer-Policy', 'no-referrer')
             self.send_header('X-Frame-Options', 'DENY')
             self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+            for name, value in (extra_headers or {}).items():
+                self.send_header(name, value)
 
-        def message(self, code, body, head=False, mime='text/plain; charset=utf-8'):
+        def message(self, code, body, head=False, mime='text/plain; charset=utf-8', extra_headers=None):
             body = body.encode('utf-8') if isinstance(body, str) else body
-            self.base_headers(code, len(body), mime)
+            self.base_headers(code, len(body), mime, extra_headers)
             self.end_headers()
             if not head:
                 self.wfile.write(body)
@@ -132,6 +261,10 @@ def make_server(bundle, port=8765, edit_session=None, capcut_sync=None):
             route = self.route(False)
             if route is None:
                 return
+            if route == '/runtime-heartbeat':
+                return self.runtime_heartbeat()
+            if route == '/launcher/shutdown':
+                return self.launcher_shutdown()
             sync_route = route == '/capcut-sync-start' and capcut_sync is not None
             if not sync_route and (edit_session is None or route not in ('/edit-draft', '/edit-commit')):
                 return self.reject_write()
@@ -180,6 +313,55 @@ def make_server(bundle, port=8765, edit_session=None, capcut_sync=None):
                 return self.message(500, json.dumps({'error': str(exc)}), mime='application/json; charset=utf-8')
             return self.message(200, json.dumps(result, ensure_ascii=False), mime='application/json; charset=utf-8')
 
+        def runtime_heartbeat(self):
+            expected_origin = f'http://127.0.0.1:{self.server.server_port}'
+            cookie = SimpleCookie()
+            try:
+                cookie.load(self.headers.get('Cookie', ''))
+                presented = cookie['MadisonHeartbeat'].value if 'MadisonHeartbeat' in cookie else ''
+            except Exception:
+                presented = ''
+            if (self.headers.get('Origin') != expected_origin or
+                    not secrets.compare_digest(presented, heartbeat_token)):
+                return self.message(403, 'Browser status was not authorized.')
+            if self.headers.get('Content-Type', '').split(';')[0].strip().lower() != 'application/json':
+                return self.message(415, 'Send JSON for browser status.')
+            try:
+                length = int(self.headers.get('Content-Length', ''))
+                if length < 2 or length > 4096:
+                    return self.message(411, 'Browser status size is invalid.')
+                value = json.loads(self.rfile.read(length))
+                features = value.get('features') if isinstance(value, dict) else None
+                if (not isinstance(value, dict) or set(value) != {'clientId', 'buildId', 'instanceId', 'unappliedEdits', 'features'} or
+                        not isinstance(value['clientId'], str) or
+                        not re.fullmatch(r'[A-Za-z0-9._-]{8,80}', value['clientId']) or
+                        not isinstance(value['buildId'], str) or not isinstance(value['instanceId'], str) or
+                        not isinstance(value['unappliedEdits'], bool) or not isinstance(features, dict) or
+                        set(features) != {'versionStatus', 'projectStatus', 'capcutControl'} or
+                        not all(isinstance(item, bool) for item in features.values())):
+                    raise ValueError
+            except (ValueError, UnicodeError, json.JSONDecodeError):
+                return self.message(400, 'Browser status is invalid.')
+            with browser_lock:
+                browser_clients[value['clientId']] = {
+                    'stale': value['buildId'] != runtime['buildId'] or value['instanceId'] != runtime['instanceId'],
+                    'lastSeenAt': datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z'),
+                    'unappliedEdits': value['unappliedEdits'],
+                    'features': dict(features),
+                    '_seenMonotonic': time.monotonic(),
+                }
+            return self.message(200, json.dumps({'accepted': True}), mime='application/json; charset=utf-8')
+
+        def launcher_shutdown(self):
+            authorization = self.headers.get('Authorization', '')
+            presented = authorization.removeprefix('Bearer ') if authorization.startswith('Bearer ') else self.headers.get('X-Madison-Shutdown-Token', '')
+            if not shutdown_token or not secrets.compare_digest(presented, shutdown_token):
+                return self.message(403, 'Launcher shutdown was not authorized.')
+            if not activity_state()['restartSafe']:
+                return self.message(409, 'Madison has active work and cannot restart safely.')
+            self.message(202, json.dumps({'accepted': True}), mime='application/json; charset=utf-8')
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
+
         def reject_write(self):
             self.close_connection = True
             self.message(405, 'This viewer is read only.')
@@ -213,7 +395,18 @@ def make_server(bundle, port=8765, edit_session=None, capcut_sync=None):
             if route is None:
                 return
             if route == '/health':
-                return self.message(200, json.dumps({'service': 'timeline-reviewer', 'readOnly': edit_session is None}), head, 'application/json')
+                health = {key: runtime.get(key) for key in ('protocolVersion', 'version', 'buildId',
+                          'instanceId', 'startIdentity', 'configFingerprint', 'pid')}
+                health.update({'service': 'timeline-reviewer', 'readOnly': edit_session is None})
+                return self.message(200, json.dumps(health), head, 'application/json')
+            if route == '/runtime-status':
+                try:
+                    status = public_runtime_status()
+                except (OSError, ValueError):
+                    return self.message(503, json.dumps({'error': 'Runtime status is not ready.'}), head,
+                                        'application/json; charset=utf-8')
+                return self.message(200, json.dumps(status, ensure_ascii=False), head,
+                                    'application/json; charset=utf-8')
             if route == '/edit-state':
                 with edit_lock:
                     try:
@@ -266,12 +459,18 @@ def make_server(bundle, port=8765, edit_session=None, capcut_sync=None):
                 _, approved = current_bundle()
             except (OSError, ValueError) as exc:
                 return self.message(503, f'Review data is not ready: {exc}', head)
-            original = source_original or fixed.get(route) or approved.get(route)
+            fixed_asset = fixed.get(route)
+            if fixed_asset is not None:
+                data = web_snapshot[fixed_asset[0]]
+                extra = ({'Set-Cookie': f'MadisonHeartbeat={heartbeat_token}; Path=/; HttpOnly; SameSite=Strict'}
+                         if fixed_asset[0] == 'index' else None)
+                return self.message(200, data, head, fixed_asset[1], extra)
+            original = source_original or approved.get(route)
             if original is None:
                 return self.message(404, 'Not found.', head)
             # Resolve again: a media symlink changed after startup must not escape.
             target = original.resolve()
-            allowed_root = target.parent if source_original is not None else WEB.resolve() if route in fixed else bundle
+            allowed_root = target.parent if source_original is not None else bundle
             if source_original is not None and not any(
                     target.is_relative_to(root.resolve()) for root in edit_session.media_roots):
                 return self.message(403, 'Source media is outside the approved folders.', head)

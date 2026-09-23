@@ -1,4 +1,4 @@
 @echo off
 cd /d "%~dp0"
-python -m timeline_reviewer demo --open
+python -m timeline_reviewer launch
 if errorlevel 1 pause

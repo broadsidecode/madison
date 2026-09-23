@@ -2,6 +2,7 @@
 from pathlib import Path
 import argparse
 import json
+import os
 import sys
 import webbrowser
 
@@ -47,43 +48,125 @@ def parser():
     item.add_argument('--tesseract', help='Path to an independently installed Tesseract CLI')
     item.add_argument('--allow-lossy', action='store_true', help='Explicitly accept unsupported feature omissions listed in the report')
     item.add_argument('--render', action='store_true', help='Also request a native draft render; audio and export limitations apply')
+    item = commands.add_parser('launch', help='Start or reuse the configured private local Madison server')
+    item.add_argument('--no-open', action='store_true')
+    commands.add_parser('stop', help='Stop the owned local Madison server when restart safe')
+    item = commands.add_parser('configure', help='Save the private local project selection')
+    item.add_argument('--mode', choices=('demo', 'serve'), default='demo')
+    item.add_argument('--port', type=int, default=8464)
+    item.add_argument('--bundle', type=Path)
+    item.add_argument('--editable-project', type=Path)
+    item.add_argument('--media-root', type=Path, action='append', default=[])
+    item.add_argument('--tesseract', type=Path)
+    item.add_argument('--capcut-project', type=Path)
+    item.add_argument('--capcut-timeline')
+    item.add_argument('--sync-root', type=Path)
+    item.add_argument('--project-label')
+    item = commands.add_parser('rollback', help='Select the previously recorded application and config')
+    item.add_argument('--launch', action='store_true')
+    item = commands.add_parser('select-app', help='Select a Madison application folder and record rollback')
+    item.add_argument('app_root', type=Path)
+    item.add_argument('--build-id')
+    item = commands.add_parser('_run', help=argparse.SUPPRESS)
+    item.add_argument('mode', choices=('demo', 'serve'))
+    item.add_argument('--port', type=int, required=True)
+    item.add_argument('--state-dir', type=Path, required=True)
+    item.add_argument('--instance-id', required=True)
+    item.add_argument('--start-identity', required=True)
+    item.add_argument('--build-id', required=True)
+    item.add_argument('--config-fingerprint', required=True)
+    item.add_argument('--shutdown-token', required=True)
+    item.add_argument('--app-root', type=Path, required=True)
+    item.add_argument('--bundle', type=Path)
+    item.add_argument('--editable-project', type=Path)
+    item.add_argument('--media-root', type=Path, action='append', default=[])
+    item.add_argument('--tesseract', type=Path)
+    item.add_argument('--capcut-project', type=Path)
+    item.add_argument('--capcut-timeline')
+    item.add_argument('--sync-root', type=Path)
+    item.add_argument('--project-label')
     return root
+
+
+def _serve(args, *, runtime_identity=None, shutdown_token=None, open_browser=False):
+    from .server import make_server
+    command = args.mode if args.command == '_run' else args.command
+    bundle = Path(__file__).resolve().parent / 'demo' if command == 'demo' else args.bundle
+    if command == 'serve' and bundle is None:
+        raise ValueError('Serve mode requires a review bundle.')
+    edit_session = None
+    if command == 'serve' and args.editable_project:
+        from .editing import EditSession
+        edit_session = EditSession(bundle, args.editable_project,
+                                   cli=args.tesseract, media_roots=args.media_root or None)
+    elif command == 'serve' and (args.media_root or args.tesseract):
+        if args.media_root or not (args.capcut_project and args.capcut_timeline and args.sync_root):
+            raise ValueError('--media-root requires --editable-project; --tesseract requires --editable-project or all CapCut sync options')
+    capcut_options = (args.capcut_project, args.capcut_timeline, args.sync_root) if command == 'serve' else ()
+    if capcut_options and any(value is not None for value in capcut_options) and not all(value is not None for value in capcut_options):
+        raise ValueError('--capcut-project, --capcut-timeline, and --sync-root must be supplied together')
+    capcut_sync = None
+    if capcut_options and all(value is not None for value in capcut_options):
+        from .sync import CapCutSync
+        capcut_sync = CapCutSync(bundle, args.capcut_project, args.capcut_timeline,
+                                 args.sync_root, cli=args.tesseract)
+    with make_server(bundle, args.port, edit_session=edit_session, capcut_sync=capcut_sync,
+                     runtime_identity=runtime_identity, shutdown_token=shutdown_token) as server:
+        address = f'http://127.0.0.1:{server.server_port}/'
+        mode = 'Limited local editing' if edit_session else 'Read only'
+        if capcut_sync:
+            mode += ' with optional CapCut sync'
+        print(f'Madison: {address}\n{mode}. Press Ctrl+C to stop.', flush=True)
+        if open_browser:
+            webbrowser.open(address)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
 
 
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
         if args.command in ('demo', 'serve'):
-            from .server import make_server
-            bundle = Path(__file__).resolve().parent / 'demo' if args.command == 'demo' else args.bundle
-            edit_session = None
-            if args.command == 'serve' and args.editable_project:
-                from .editing import EditSession
-                edit_session = EditSession(bundle, args.editable_project,
-                                           cli=args.tesseract, media_roots=args.media_root or None)
-            elif args.command == 'serve' and (args.media_root or args.tesseract):
-                if args.media_root or not (args.capcut_project and args.capcut_timeline and args.sync_root):
-                    raise ValueError('--media-root requires --editable-project; --tesseract requires --editable-project or all CapCut sync options')
-            capcut_options = (args.capcut_project, args.capcut_timeline, args.sync_root) if args.command == 'serve' else ()
-            if capcut_options and any(value is not None for value in capcut_options) and not all(value is not None for value in capcut_options):
-                raise ValueError('--capcut-project, --capcut-timeline, and --sync-root must be supplied together')
-            capcut_sync = None
-            if capcut_options and all(value is not None for value in capcut_options):
-                from .sync import CapCutSync
-                capcut_sync = CapCutSync(bundle, args.capcut_project, args.capcut_timeline,
-                                        args.sync_root, cli=args.tesseract)
-            with make_server(bundle, args.port, edit_session=edit_session, capcut_sync=capcut_sync) as server:
-                address = f'http://127.0.0.1:{server.server_port}/'
-                mode = 'Limited local editing' if edit_session else 'Read only'
-                if capcut_sync:
-                    mode += ' with optional CapCut sync'
-                print(f'Madison: {address}\n{mode}. Press Ctrl+C to stop.', flush=True)
-                if args.open:
-                    webbrowser.open(address)
-                try:
-                    server.serve_forever()
-                except KeyboardInterrupt:
-                    pass
+            _serve(args, open_browser=args.open)
+        elif args.command == '_run':
+            from .identity import capture_runtime_identity
+            identity = capture_runtime_identity(args.project_label, args.config_fingerprint,
+                                                package_root=Path(__file__).resolve().parent,
+                                                instance_id=args.instance_id,
+                                                start_identity=args.start_identity,
+                                                pid=os.getpid())
+            if identity['buildId'] != args.build_id or identity['startIdentity'] != args.start_identity:
+                raise RuntimeError('Madison source changed while the server was starting. Launch again.')
+            _serve(args, runtime_identity=identity, shutdown_token=args.shutdown_token)
+        elif args.command == 'configure':
+            from .launcher import configure
+            config = configure(mode=args.mode, port=args.port, bundle=args.bundle,
+                               editable_project=args.editable_project, media_roots=args.media_root,
+                               tesseract=args.tesseract, capcut_project=args.capcut_project,
+                               capcut_timeline=args.capcut_timeline, sync_root=args.sync_root,
+                               project_label=args.project_label)
+            print(f"Madison configuration saved for {config.get('projectLabel', config['mode'])}.")
+        elif args.command == 'launch':
+            from .launcher import launch, selected_app_root
+            result = launch(open_browser=not args.no_open, app_root=selected_app_root())
+            print(f'Madison {result.action}: {result.url}')
+        elif args.command == 'stop':
+            from .launcher import stop
+            stop()
+            print('Madison stopped.')
+        elif args.command == 'rollback':
+            from .launcher import launch, rollback
+            selection = rollback()
+            print(f"Madison launcher restored: {selection['appRoot']}")
+            if args.launch:
+                result = launch(app_root=selection['appRoot'])
+                print(f'Madison {result.action}: {result.url}')
+        elif args.command == 'select-app':
+            from .launcher import select_app
+            selection = select_app(app_root=args.app_root, build_id=args.build_id)
+            print(f"Madison application selected: {selection['appRoot']}")
         elif args.command == 'validate':
             from .manifest import load_manifest, asset_files
             data = load_manifest(args.bundle / 'data.json')

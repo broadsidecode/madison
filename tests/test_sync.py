@@ -56,6 +56,11 @@ class DiffTests(unittest.TestCase):
 
 class SyncTests(unittest.TestCase):
     def setUp(self):
+        self.github = patch('timeline_reviewer.identity._github_comparison',
+                            return_value={'status': 'not_verified',
+                                          'checkedAt': '2026-09-23T12:00:00Z'})
+        self.github.start()
+        self.addCleanup(self.github.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)

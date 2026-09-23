@@ -22,7 +22,7 @@ Infer answers already supplied. Inspect the operating system, architecture and i
 
 ## Prepare the review
 
-Start the bundled synthetic demo to check Madison independently of the engine. Report viewer setup and engine setup separately. A working Madison demo does not prove that Tesseract is installed or can render.
+Start the bundled synthetic demo through the single instance launcher to check Madison independently of the engine. Run `start-review.cmd` on Windows or `bash start-review.sh` on macOS and Linux. It uses **http://127.0.0.1:8464/** and stores the selected review in private operating system application data. Report viewer setup and engine setup separately. A working Madison demo does not prove that Tesseract is installed or can render.
 
 For an existing Tesseract project, work from a copy and inspect its native editable data through the installed official CLI. For new footage, use the official Tesseract workflow after agreeing on the edit.
 
@@ -32,7 +32,7 @@ The preparation command creates one full movie clip if no lane metadata is suppl
 
 Keep generated reviews outside this repository and preserve source projects and media. Check picture and audio timing. Tesseract 0.1.0 has shown native audio source offset differences; a completed render does not prove an accurate soundtrack. Say so if audio cannot be auditioned.
 
-Serve the bundle on an available port bound to 127.0.0.1. Respect the host's port registry, leave unrelated services running, and do not expose the viewer to the network. Open the full local URL through the host's permitted browser workflow.
+Configure the launcher with the review bundle and optional editing or CapCut connection, then use the same start script for later sessions. Keep private paths in launcher configuration, not this repository. The launcher binds to 127.0.0.1, reuses a matching healthy instance, and refuses to replace unrelated software or active Madison work. Respect the host's port registry and do not expose the viewer to the network.
 
 ## Show the workflow
 
@@ -40,7 +40,7 @@ Check playback, clip selection and seeking, zoom, divider resizing, range markin
 
 Explain the loop: the agent prepares a review; the user watches and makes simple draft edits in Madison or copies feedback; the agent handles complex revisions. Applying basic edits creates a new Tesseract project version, but the rendered movie and soundtrack remain pending until a fresh export. Madison refreshes the timeline in place when new review data arrives. Notes remain in the current browser session; copy any unsent feedback before closing it.
 
-Finish with the working URL, project and review locations, simple reopening and shutdown instructions, what you checked, and any remaining limitation. Keep command dumps out of ordinary conversation.
+Finish with the working URL, project and review locations, the start script, what you checked, and any remaining limitation. Keep command dumps out of ordinary conversation. If an application rollback is needed, use the launcher rollback command. It changes the selected Madison application and launcher configuration only; it never changes review or editor project data.
 
 ## Keep CapCut optional
 

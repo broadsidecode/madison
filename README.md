@@ -34,6 +34,8 @@ review link and simple instructions for opening it again.
 
 Tesseract needs a supported Windows or Mac computer. Your agent will check compatibility and guide you through setup.
 
+After setup, open Madison with `start-review.cmd` on Windows or `bash start-review.sh` on macOS and Linux. The launcher opens **http://127.0.0.1:8464/**, reuses the correct running copy, and remembers the selected local review outside this public source folder.
+
 ## Review your edit
 
 Pop out the video onto another screen and resize its window. View picture and audio lanes, zoom in, and scrub to a moment. With a connected Tesseract project, remove, trim or mute simple clips and apply the batch. Copy precise feedback for anything your agent should handle.
@@ -47,7 +49,7 @@ The normal demo shows **Connect CapCut** so you can see how to set it up. That b
 ## Optional extras
 
 * [Bring a CapCut project or set up local sync](docs/experimental-importer.md). Experimental; some effects and audio details need rebuilding. No transfer back to CapCut.
-* [Edit clips in Madison](docs/editing.md), [review controls](docs/viewer-controls.md) and [manual setup](docs/manual-setup.md).
+* [Edit clips in Madison](docs/editing.md), [review controls](docs/viewer-controls.md) and [manual setup](docs/manual-setup.md), including launcher configuration and rollback.
 * [Technical details](docs/manifest.md) and [what we tested](docs/verification.md).
 
 Madison can also review prepared previews from other editing tools. It is free under the [MIT license](LICENSE). This is an independent community project, not an official Mirage product. Tesseract has its own [terms](https://github.com/mirage-hq/Tesseract/blob/main/TERMS.md), and your AI agent's normal usage costs still apply.

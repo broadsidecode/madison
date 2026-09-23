@@ -2,6 +2,14 @@
 
 Release candidate checked on September 22, 2026. These results describe bounded tests, not a certification that arbitrary editor projects will convert faithfully.
 
+## Single instance launcher safeguards
+
+The launcher tests use synthetic state and process fixtures. They cover the portable demo default on 127.0.0.1:8464, private project selection, atomic concurrent launch locking, stale lock recovery, healthy instance reuse, unrelated port ownership, protected active work, authenticated safe replacement, verified legacy process handling, hidden background startup, and application selection rollback without project changes.
+
+The running server handshake includes the process and frozen startup identity, application version, build identity, and configuration fingerprint. A changed checkout cannot make an older process claim the new build. Launcher shutdown requires the private bearer token. A release ZIP derives the same build identity without Git.
+
+The start scripts now use this launcher. The original foreground `demo` and `serve` commands remain for contributor testing and explicitly selected ports. A full release check must still compare local source, the running process, served browser assets, remote main and CI, and the latest download separately.
+
 ## CapCut sync update
 
 On September 23, the normal unconnected demo was checked again after a visibility fix. **Connect CapCut** appeared on desktop and phone; its setup panel opened by keyboard and pointer, offered a copyable agent request, and made no sync request. A separately bound sample still showed **Sync from CapCut** and completed a real Tesseract import, render, and viewer update. The full audition project was checked only through its change preview; no import was started because its CapCut effects and audio need review. That project also exposed an inflated move count: lane changes and subframe rounding had been counted as moved clips. The comparison now reports lane changes, small timing shifts, and larger moves separately. Four focused tests cover those distinctions.

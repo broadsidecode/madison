@@ -50,12 +50,70 @@
   let popoutHost = null;
   let saveTimer = null;
   const viewKey = `madison-view:${location.pathname}`;
+  const runtimePage = {
+    version: document.querySelector('meta[name="madison-version"]')?.content || '',
+    buildId: document.querySelector('meta[name="madison-build"]')?.content || '',
+    instanceId: document.querySelector('meta[name="madison-instance"]')?.content || ''
+  };
+  const runtimeClientId = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 18)}`;
 
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
   const currentSeconds = () => pendingSeek ?? video.currentTime;
   const hasRange = () => rangeStart !== null && rangeEnd !== null && rangeEnd > rangeStart;
   const maxScale = () => Math.max(80, fitScale * 32);
   const calculateFitScale = () => Math.max(0.000001, Math.max(1, scroller.clientWidth - labelWidth() - 3) / project.duration);
+
+  function runtimeModes(value) {
+    const modes = ['review'];
+    if (value?.editing) modes.push('editing');
+    if (value?.capcutSync) modes.push('CapCut sync');
+    return modes.join(', ');
+  }
+
+  function checkedTime(value) {
+    if (!value) return 'not verified';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? 'not verified' : date.toLocaleString();
+  }
+
+  async function updateRuntimeStatus() {
+    if (!runtimePage.buildId || !runtimePage.instanceId) return;
+    const unappliedEdits = Boolean(editState?.operations?.length);
+    try {
+      const features = {
+        versionStatus: Boolean($('runtime-summary') && $('runtime-warning')),
+        projectStatus: Boolean($('project-title') && $('project-summary')),
+        capcutControl: Boolean($('capcut-sync-open') && !$('capcut-sync-open').hidden)
+      };
+      const heartbeatResponse = await fetch('./runtime-heartbeat', {
+        method: 'POST', cache: 'no-store', credentials: 'same-origin', keepalive: true,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({clientId: runtimeClientId, buildId: runtimePage.buildId, instanceId: runtimePage.instanceId, unappliedEdits, features})
+      });
+      const response = await fetch('./runtime-status', {cache: 'no-store'});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const status = await response.json();
+      const stale = !heartbeatResponse.ok || status.buildId !== runtimePage.buildId || status.instanceId !== runtimePage.instanceId;
+      $('runtime-summary').textContent = `Madison ${status.version} · ${String(status.buildId).slice(0, 10)}`;
+      $('runtime-build').textContent = `${status.projectLabel} · ${runtimeModes(status.modes)}`;
+      const changed = status.source?.drift ? 'Code changed after start' : status.source?.localChanges ? 'Local build' : status.source?.manifestVerified ? 'Verified release build' : 'Checkout build';
+      $('runtime-source').textContent = `${changed} · Started ${checkedTime(status.startedAt)}`;
+      const github = status.github?.status === 'not_verified' ? 'not verified' : status.github?.status;
+      $('runtime-github').textContent = `GitHub: ${github} · Checked ${checkedTime(status.github?.checkedAt)}`;
+      const warning = $('runtime-warning');
+      if (stale) warning.textContent = 'This Madison page is stale. Reload it to use the running version.';
+      else if (status.source?.drift) warning.textContent = 'Local code changed after Madison started. Restart Madison to load it.';
+      else warning.textContent = '';
+      warning.hidden = !warning.textContent;
+      document.body.dataset.runtimeStale = String(stale || Boolean(status.source?.drift));
+    } catch {
+      $('runtime-summary').textContent = runtimePage.version ? `Madison ${runtimePage.version}` : 'Madison version unavailable';
+      $('runtime-github').textContent = 'GitHub: not verified';
+      $('runtime-warning').textContent = 'Runtime status could not be verified. The timeline remains available.';
+      $('runtime-warning').hidden = false;
+      document.body.dataset.runtimeStale = 'true';
+    }
+  }
 
   function safeSourceUrl(value) {
     if (typeof value !== 'string' || !value || value !== value.trim() || value.includes('\\') || /[\u0000-\u001f\u007f]/.test(value)) return '';
@@ -1496,8 +1554,9 @@
     }
   }).observe(scroller);
 
-  async function init() { await refreshTimeline(); await checkCapcutSyncAvailability(); }
+  async function init() { await refreshTimeline(); await checkCapcutSyncAvailability(); await updateRuntimeStatus(); }
   resetPreviewHeight();
   init();
   setInterval(() => { if (project && document.visibilityState === 'visible') refreshTimeline(); }, 5000);
+  setInterval(() => { if (document.visibilityState === 'visible') updateRuntimeStatus(); }, 5000);
 })();

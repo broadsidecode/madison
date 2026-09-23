@@ -119,5 +119,6 @@ body[data-panning="true"],body[data-panning="true"] *{cursor:grabbing!important;
 .capcut-sync-lossy{display:flex;align-items:flex-start;gap:9px;cursor:pointer;color:#f3e4d0}
 .capcut-sync-lossy input{flex:none;width:17px;height:17px;margin-top:2px;accent-color:#77c8bc}
 .capcut-sync-status{min-height:20px;color:#aee1d7}
+.runtime-panel{position:relative;margin-left:8px;color:#c9d5df}.runtime-panel summary{cursor:pointer;white-space:nowrap;font-size:11px}.runtime-details{position:absolute;right:0;top:25px;z-index:20;width:min(360px,calc(100vw - 24px));padding:12px 14px;border:1px solid #46505d;border-radius:6px;background:#11171d;box-shadow:0 10px 28px #0009}.runtime-details p{font-size:11px;line-height:1.45;margin:0 0 5px}.runtime-details p:last-child{margin-bottom:0}.runtime-warning{color:#ffd09a;background:#3b2b1c;padding:7px 8px;border-left:2px solid #d99b51}body[data-runtime-stale="true"] .status-dot{background:#d99b51}@media(max-width:650px){.runtime-panel{flex-basis:100%;margin-left:0}.runtime-panel summary{white-space:normal}.runtime-details{position:fixed;top:74px;right:12px}}
 .capcut-sync-actions{display:flex;justify-content:flex-end;gap:8px}
 @media(max-width:650px){.capcut-sync-panel{padding:16px}.capcut-sync-actions button{flex:1}}
