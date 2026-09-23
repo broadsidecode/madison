@@ -2,54 +2,46 @@
 
 ![Madison / Tesseract by Mirage. Built for Tesseract.](images/madison-tesseract.png)
 
-**A free review companion for Tesseract.**
+**Review your Tesseract edit in a browser.**
 
-Your AI agent edits the video in [Tesseract](https://github.com/mirage-hq/Tesseract), built by [Mirage](https://mirage.app/tesseract). Madison lets you review the timeline and make simple clip edits yourself.
+Your AI agent edits the video in [Tesseract](https://github.com/mirage-hq/Tesseract), built by [Mirage](https://mirage.app/tesseract). Madison lets you watch the result, inspect the timeline and make simple clip changes yourself.
 
-## Get started
+## Start with your project
 
-Copy this into Codex, Claude Code, or another coding agent that can work on your computer. You do not need to install Madison first.
+Copy this into a coding agent that can work on your computer:
 
 ```text
 Help me set up Tesseract and Madison on my computer.
 
 Get Madison from https://github.com/broadsidecode/madison
-and read its START-HERE.md before doing the setup.
+and follow its START-HERE.md setup guide.
 
-Ask whether I want to try a demo, use an existing Tesseract
-project, or start with my own footage. Ask where to keep it.
-Check my computer and installed tools yourself, then follow
-the official Tesseract instructions for anything missing.
-Explain any terms or system approval that needs my decision.
+Connect my existing Tesseract project. If I do not have one,
+ask which footage I want to edit and help me start a project.
+Check the tools I already have and explain any installation
+or terms that need my decision.
 
-Do the setup work for me and open a review in my browser.
-If I have an editable Tesseract project, connect it to
-Madison so I can remove, trim and mute clips. Show me how
-to review, edit, undo, and apply a batch of changes.
-
-Keep my original files safe and my media local. Only use
-the optional CapCut importer if I ask. Finish with the
-review link and simple instructions for opening it again.
+Keep my files local and preserve the originals. Open my project
+in Madison, show me how to review it, and tell me how to reopen
+it later. Only use the optional CapCut connection if I ask.
 ```
 
-Tesseract needs a supported Windows or Mac computer. Your agent will check compatibility and guide you through setup.
-
-After setup, open Madison with `start-review.cmd` on Windows or `bash start-review.sh` on macOS and Linux. The launcher opens **http://127.0.0.1:8464/**, reuses the correct running copy, and remembers the selected local review outside this public source folder.
+Your agent will check whether your computer can run Tesseract and guide you through setup.
 
 ## Review your edit
 
-Pop out the video onto another screen and resize its window. View picture and audio lanes, zoom in, and scrub to a moment. With a connected Tesseract project, remove, trim or mute simple clips and apply the batch. Copy precise feedback for anything your agent should handle.
+Watch the movie beside its picture and audio lanes. Zoom, scrub, mark a section and copy precise feedback for your agent. Pop the preview into another window when you want more room. When Madison is connected to an editable Tesseract project, you can remove, trim or mute simple clips and apply those changes to a new project version.
 
 ![Madison reviewing an episode with video preview, audio waveform and multiple timeline lanes](images/viewer-demo.png)
 
-Madison saves your basic edits into a new Tesseract project version, preserving the previous version. Source clips can show a quick draft picture when their files are available. The final movie and soundtrack still need a fresh render before delivery. Copy any unsent notes before closing the page.
+Your agent can handle larger revisions and render the final movie after your review.
 
-The normal demo shows **Connect CapCut** so you can see how to set it up. That button does not import a project by itself. If you use CapCut, your local agent can connect one saved project to Madison. The button then becomes **Sync from CapCut** and shows what changed and which effects or audio may differ before you choose to import. It builds a new local Tesseract version and keeps the previous review visible until the new movie is ready. **Reload viewer** only updates the browser view; it does not read CapCut. This optional sync remains experimental, so compare the result with your CapCut cut before delivery.
+## CapCut is optional
 
-## Optional extras
+If you edit in CapCut, your local agent can connect a saved project. Madison then shows a preview of changes before you choose to import them into Tesseract. This connection is experimental: effects and audio may need attention, so check the result before delivery.
 
-* [Bring a CapCut project or set up local sync](docs/experimental-importer.md). Experimental; some effects and audio details need rebuilding. No transfer back to CapCut.
-* [Edit clips in Madison](docs/editing.md), [review controls](docs/viewer-controls.md) and [manual setup](docs/manual-setup.md), including launcher configuration and rollback.
-* [Technical details](docs/manifest.md) and [what we tested](docs/verification.md).
+## More information
 
-Madison can also review prepared previews from other editing tools. It is free under the [MIT license](LICENSE). This is an independent community project, not an official Mirage product. Tesseract has its own [terms](https://github.com/mirage-hq/Tesseract/blob/main/TERMS.md), and your AI agent's normal usage costs still apply.
+Read the [setup guide](START-HERE.md), [review controls](docs/viewer-controls.md), [simple editing guide](docs/editing.md) or [CapCut connection guide](docs/experimental-importer.md). Your agent can use the [manual setup](docs/manual-setup.md), [technical details](docs/manifest.md) and [verification notes](docs/verification.md).
+
+Madison is free under the [MIT license](LICENSE) and is an independent community project. [Tesseract has its own terms](https://github.com/mirage-hq/Tesseract/blob/main/TERMS.md). Your AI agent's normal usage costs may still apply.

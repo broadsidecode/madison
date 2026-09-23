@@ -4,7 +4,7 @@ This page is for the agent following the setup prompt on the [front page](README
 
 ## Ask two questions
 
-1. Would you like a demo, a review of an existing Tesseract project, or a new edit from your own footage?
+1. Which existing Tesseract project should Madison open? If there is no project, which footage should the agent use to start one?
 2. Where should the project and its review files live?
 
 Infer answers already supplied. Inspect the operating system, architecture and installed tools yourself. Ask for a project or footage location only when needed. For a new edit, establish the desired result before making editorial changes.
@@ -22,7 +22,7 @@ Infer answers already supplied. Inspect the operating system, architecture and i
 
 ## Prepare the review
 
-Start the bundled synthetic demo through the single instance launcher to check Madison independently of the engine. Run `start-review.cmd` on Windows or `bash start-review.sh` on macOS and Linux. It uses **http://127.0.0.1:8464/** and stores the selected review in private operating system application data. Report viewer setup and engine setup separately. A working Madison demo does not prove that Tesseract is installed or can render.
+Prepare the user's project or footage first. Once its review is ready, run `start-review.cmd` on Windows or `bash start-review.sh` on macOS and Linux. It uses **http://127.0.0.1:8464/** and remembers the selected review in private operating system application data. Confirm that the viewer opens the requested project and that Tesseract can render it. The bundled synthetic example remains available for troubleshooting, but do not make it the user's default project.
 
 For an existing Tesseract project, work from a copy and inspect its native editable data through the installed official CLI. For new footage, use the official Tesseract workflow after agreeing on the edit.
 
@@ -46,4 +46,4 @@ Finish with the working URL, project and review locations, the start script, wha
 
 The normal review should show **Connect CapCut** with setup guidance. It is not an active import. Only use the [experimental importer and sync](docs/experimental-importer.md) when asked. Bind the exact saved CapCut project and named timeline once on the local server, then verify the page says **Sync from CapCut**. Explain that **Reload viewer** updates the page, while **Sync from CapCut** reads the saved edit and first shows a change preview. Import into a new destination, preserve the source and older review, and never enable lossy conversion without the user's explicit choice. Do not imply that editable transfers work in both directions.
 
-Use only the demo and files the user provides. Do not upload media, publish projects, commit generated bundles or request unrelated account access during setup.
+Use only the files the user provides. Do not upload media, publish projects, commit generated bundles or request unrelated account access during setup.

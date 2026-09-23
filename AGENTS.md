@@ -23,3 +23,6 @@ Tesseract and FFmpeg are separately installed tools. Do not bundle their executa
 
 ## Publishing
 Use the main branch and stage explicit files only. Review the complete publication file list and scan for private data before a public push.
+
+## Public update copy
+Write the README and GitHub release descriptions for creators. Lead with what they can do, keep updates to a few plain language highlights, and describe only features present in that specific download. Mention practical limitations briefly. Keep test counts, CI, local server details, sample fixtures, internal build notes and implementation detail in the technical documentation for agents. A sample project is for testing or troubleshooting; connecting a creator's editor project is the normal setup path.
