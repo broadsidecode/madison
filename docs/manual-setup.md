@@ -91,6 +91,8 @@ python -m timeline_reviewer import-capcut "/path/to/CapCut/project" --timeline "
 
 Unsupported active features stop the conversion by default. The optional `--allow-lossy` flag explicitly accepts reported omissions; it does not make the conversion faithful. Rendering is off by default and requires `--render`.
 
+To check saved changes and start a versioned import from the browser instead, use the opt-in local server binding in the [CapCut sync guide](experimental-importer.md#optional-browser-sync). The separate **Reload viewer** button never imports. Keep the sync output folder outside both the source project and review bundle.
+
 **Known boundaries:** proprietary color matching, complex effects, volume automation and fades, some mute/pitch settings, nested timelines and other unsupported features can require rebuilding. Tesseract 0.1.0 controls export size and frame rate automatically; native audio export has shown timing differences. Inspect and audition any imported draft against a reference export before using it as a final film.
 
 [Importer setup and supported behavior](experimental-importer.md)
@@ -99,7 +101,7 @@ Tesseract is supplied by Mirage under its own terms. Its binaries, skills and ve
 
 ## Local access and privacy
 
-The server binds only to IPv4 loopback. Review only mode exposes the application files and media referenced by a validated manifest and rejects writes. The optional editing mode accepts a small set of local clip operations, serves approved source video from selected local folders, and saves a new native project version. Neither mode has an upload endpoint or analytics integration.
+The server binds only to IPv4 loopback. Review only mode exposes the application files and media referenced by a validated manifest and rejects writes. The optional editing mode accepts a small set of local clip operations, serves approved source video from selected local folders, and saves a new native project version. Optional CapCut sync binds one named local source when the server starts and creates versioned output without changing that source. None of these modes has an upload endpoint or analytics integration.
 
 Other processes on your computer can access a running loopback server. Stop it when finished. Do not expose the port through a proxy or tunnel for confidential work. Copied feedback includes the manifest's clip labels and revision information; review it before sharing.
 

@@ -38,6 +38,10 @@
   let undoStates = [];
   let redoStates = [];
   let refreshBusy = false;
+  let capcutSyncState = null;
+  let capcutSyncBusy = false;
+  let capcutSyncPoll = null;
+  let capcutSyncWasLossy = false;
   let renderPending = false;
   let sourceClipId = null;
   const failedSourceUrls = new Set();
@@ -460,7 +464,7 @@
   function renderEditUI() {
     const enabled = Boolean(editState?.enabled);
     $('edit-toolbar').hidden = !enabled;
-    $('mode-label').textContent = enabled ? 'Tesseract editing' : 'Review only';
+    $('mode-label').textContent = enabled ? 'Tesseract editing' : $('capcut-sync-open').hidden ? 'Review only' : 'CapCut sync available';
     if (!enabled) return;
     const ops = editState.operations || [];
     $('edit-count').textContent = ops.length ? `${ops.length} change${ops.length === 1 ? '' : 's'} queued` : 'No changes queued';
@@ -981,6 +985,194 @@
     } finally { refreshBusy = false; }
   }
 
+  function capcutSyncMessage(message) {
+    $('capcut-sync-status').textContent = message;
+  }
+
+  function capcutSyncReady() {
+    return Boolean(capcutSyncState?.canSync && capcutSyncState.sourceHash && capcutSyncState.csrfToken && !capcutSyncBusy && !editBusy && !editState?.operations?.length && (!capcutSyncState.requiresLossy || $('capcut-sync-lossy').checked));
+  }
+
+  function updateCapcutSyncButton() {
+    $('capcut-sync-confirm').disabled = !capcutSyncReady();
+    $('capcut-sync-open').textContent = capcutSyncBusy ? 'CapCut sync in progress' : 'Sync from CapCut';
+  }
+
+  function addCapcutSyncItem(list, value) {
+    const item = document.createElement('li');
+    item.textContent = String(value);
+    list.appendChild(item);
+  }
+
+  function renderCapcutSyncReview(state) {
+    capcutSyncState = state;
+    $('capcut-sync-lossy').checked = false;
+    const name = [state.projectName, state.timelineName].filter((part) => typeof part === 'string' && part).join(' · ');
+    $('capcut-sync-project').textContent = name || 'Selected CapCut project';
+    const diff = state.diff || {};
+    const counts = [
+      ['added', 'added'], ['removed', 'removed'], ['moved', 'moved'], ['trimmed', 'trimmed'], ['changed', 'changed'],
+    ].map(([key, label]) => `${Number(diff[key]) || 0} ${label}`);
+    const before = Number(diff.previousDuration);
+    const after = Number(diff.currentDuration);
+    const duration = diff.previousDuration !== null && diff.previousDuration !== undefined && Number.isFinite(before) && Number.isFinite(after) ? ` Previous length ${clock(before)}; new length ${clock(after)}.` : Number.isFinite(after) ? ` New length ${clock(after)}.` : '';
+    $('capcut-sync-summary').textContent = `${counts.join(' · ')}.${duration}`;
+    const examples = $('capcut-sync-examples');
+    examples.replaceChildren();
+    for (const example of Array.isArray(diff.examples) ? diff.examples.slice(0, 8) : []) addCapcutSyncItem(examples, example);
+    const warnings = $('capcut-sync-warning-list');
+    warnings.replaceChildren();
+    const unsupported = Array.isArray(state.unsupported) ? state.unsupported : [];
+    const missing = Array.isArray(state.missingMedia) ? state.missingMedia : [];
+    if (unsupported.length) {
+      const affectedCount = unsupported.reduce((total, issue) => total + (Number.isSafeInteger(issue.count) && issue.count > 0 ? issue.count : 1), 0);
+      addCapcutSyncItem(warnings, `${affectedCount} active CapCut effects or settings may change or be lost in Tesseract.`);
+      const groups = new Map();
+      for (const issue of unsupported) {
+        const code = typeof issue.code === 'string' && issue.code ? issue.code.replace(/[_-]+/g, ' ') : 'Other setting';
+        const detail = typeof issue.detail === 'string' && issue.detail ? issue.detail : code;
+        const group = groups.get(code) || { detail, count: 0 };
+        group.count += Number.isSafeInteger(issue.count) && issue.count > 0 ? issue.count : 1;
+        groups.set(code, group);
+      }
+      for (const [, group] of [...groups].sort((a, b) => b[1].count - a[1].count).slice(0, 6)) addCapcutSyncItem(warnings, `${group.detail}: ${group.count} affected item${group.count === 1 ? '' : 's'}`);
+      if (groups.size > 6) addCapcutSyncItem(warnings, `${groups.size - 6} more effect or setting types.`);
+    }
+    if (missing.length) {
+      addCapcutSyncItem(warnings, `${missing.length} source media item${missing.length === 1 ? ' is' : 's are'} missing. Sync cannot continue until they are available.`);
+      for (const issue of missing.slice(0, 5)) addCapcutSyncItem(warnings, `Missing: ${issue.name || 'clip'}`);
+      if (missing.length > 5) addCapcutSyncItem(warnings, `${missing.length - 5} more missing items.`);
+    }
+    $('capcut-sync-warnings').hidden = warnings.childElementCount === 0;
+    $('capcut-sync-lossy-row').hidden = !state.requiresLossy;
+    if (editState?.operations?.length) capcutSyncMessage('Apply or undo your queued Madison changes before syncing from CapCut.');
+    else if (missing.length) capcutSyncMessage('Sync is blocked until the missing source media is available.');
+    else if (!state.canSync) capcutSyncMessage('No new CapCut changes are ready to sync.');
+    else if (state.requiresLossy) capcutSyncMessage('Review the warnings and acknowledge them before syncing.');
+    else capcutSyncMessage('Ready to sync these saved changes.');
+    updateCapcutSyncButton();
+  }
+
+  async function fetchCapcutSyncState() {
+    const response = await fetch('./capcut-sync-state', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`CapCut sync check failed (HTTP ${response.status})`);
+    const state = await response.json();
+    if (!state || typeof state !== 'object' || state.enabled !== true) throw new Error('CapCut sync is not connected.');
+    return state;
+  }
+
+  async function checkCapcutSyncAvailability() {
+    try {
+      const response = await fetch('./capcut-sync-state', { cache: 'no-store' });
+      const state = await response.json();
+      $('capcut-sync-open').hidden = state?.enabled !== true;
+      renderEditUI();
+      if (state?.enabled !== true || !response.ok) return;
+      if (!capcutSyncBusy) capcutSyncState = state;
+      try {
+        const response = await fetch('./capcut-sync-status', { cache: 'no-store' });
+        if (response.ok && (await response.json()).state === 'running') {
+          capcutSyncBusy = true;
+          updateCapcutSyncButton();
+          pollCapcutSyncStatus();
+        }
+      } catch { /* A status check can be retried when the review is opened. */ }
+    } catch {
+      if (!capcutSyncBusy) $('capcut-sync-open').hidden = true;
+    }
+  }
+
+  async function openCapcutSyncReview() {
+    if (!$('capcut-sync-dialog').open) $('capcut-sync-dialog').showModal();
+    $('capcut-sync-close').focus();
+    if (capcutSyncBusy) { capcutSyncMessage('Checking CapCut sync progress…'); return; }
+    capcutSyncState = null;
+    $('capcut-sync-project').textContent = '';
+    $('capcut-sync-summary').textContent = '';
+    $('capcut-sync-examples').replaceChildren();
+    $('capcut-sync-warning-list').replaceChildren();
+    $('capcut-sync-warnings').hidden = true;
+    $('capcut-sync-lossy-row').hidden = true;
+    capcutSyncMessage('Checking the saved CapCut project…');
+    $('capcut-sync-confirm').disabled = true;
+    try {
+      const statusResponse = await fetch('./capcut-sync-status', { cache: 'no-store' });
+      if (statusResponse.ok && (await statusResponse.json()).state === 'running') {
+        capcutSyncBusy = true;
+        updateCapcutSyncButton();
+        pollCapcutSyncStatus();
+        return;
+      }
+      renderCapcutSyncReview(await fetchCapcutSyncState());
+    } catch (error) {
+      capcutSyncState = null;
+      capcutSyncMessage(error.message || 'Cannot check CapCut changes.');
+      updateCapcutSyncButton();
+    }
+  }
+
+  async function pollCapcutSyncStatus() {
+    if (!capcutSyncBusy) return;
+    try {
+      const response = await fetch('./capcut-sync-status', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Status check failed (HTTP ${response.status})`);
+      const status = await response.json();
+      if (status.state === 'complete') {
+        capcutSyncBusy = false;
+        clearTimeout(capcutSyncPoll);
+        capcutSyncState = null;
+        updateCapcutSyncButton();
+        capcutSyncMessage('CapCut sync complete. Reloading the viewer at your position…');
+        await refreshTimeline(true);
+        if (String(status.document || '').includes('rebind required')) {
+          capcutSyncMessage('The new review is ready at your position. Madison editing needs its Tesseract project reconnected.');
+        } else {
+          capcutSyncMessage(capcutSyncWasLossy ? 'CapCut sync complete. The viewer is updated at your position. Some effects or audio may differ from CapCut.' : 'CapCut sync complete. The viewer is updated at your position.');
+        }
+        return;
+      }
+      if (status.state === 'failed') {
+        capcutSyncBusy = false;
+        clearTimeout(capcutSyncPoll);
+        capcutSyncState = null;
+        updateCapcutSyncButton();
+        capcutSyncMessage(`CapCut sync failed. ${status.error || 'The previous viewer remains available.'}`);
+        return;
+      }
+      const stageNames = { inspecting: 'Checking changes', importing: 'Importing clips', preparing: 'Preparing the preview', activating: 'Updating the viewer' };
+      capcutSyncMessage(`${stageNames[status.stage] || 'Syncing from CapCut'}… The previous preview remains available.`);
+    } catch {
+      capcutSyncMessage('Checking sync progress. The previous viewer remains available.');
+    }
+    capcutSyncPoll = setTimeout(pollCapcutSyncStatus, 1500);
+  }
+
+  async function startCapcutSync() {
+    if (!capcutSyncReady()) return;
+    const state = capcutSyncState;
+    capcutSyncWasLossy = Boolean(state.requiresLossy);
+    capcutSyncBusy = true;
+    updateCapcutSyncButton();
+    capcutSyncMessage('Starting CapCut sync…');
+    try {
+      const response = await fetch('./capcut-sync-start', {
+        method: 'POST', cache: 'no-store', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-Madison-Edit-Token': state.csrfToken },
+        body: JSON.stringify({ expectedSourceHash: state.sourceHash, allowLossy: Boolean(state.requiresLossy && $('capcut-sync-lossy').checked) }),
+      });
+      if (response.status === 409) throw new Error('The saved CapCut project changed or sync is not ready. Close and reopen this panel to review it again.');
+      if (!response.ok) throw new Error(`CapCut sync could not start (HTTP ${response.status}). Close and reopen this panel to try again.`);
+      const result = await response.json();
+      if (result.state !== 'running') throw new Error('Sync did not start. Review the project again.');
+      pollCapcutSyncStatus();
+    } catch (error) {
+      capcutSyncBusy = false;
+      capcutSyncState = null;
+      updateCapcutSyncButton();
+      capcutSyncMessage(error.message || 'CapCut sync could not start.');
+    }
+  }
+
   async function commitEdits() {
     if (!editState?.enabled || editBusy || !editState.operations?.length) return;
     editBusy = true;
@@ -1054,6 +1246,10 @@
 
   $('play-button').addEventListener('click', togglePlayback);
   $('refresh-timeline').addEventListener('click', () => refreshTimeline(true));
+  $('capcut-sync-open').addEventListener('click', openCapcutSyncReview);
+  $('capcut-sync-close').addEventListener('click', () => $('capcut-sync-dialog').close());
+  $('capcut-sync-confirm').addEventListener('click', startCapcutSync);
+  $('capcut-sync-lossy').addEventListener('change', updateCapcutSyncButton);
   $('remove-clip').addEventListener('click', () => { if (selected) setClipOperation({ type: 'remove', clipId: selected.clip.id }); });
   $('restore-clip').addEventListener('click', () => { if (selected) replaceOperations(editState.operations.filter((op) => !(op.type === 'remove' && op.clipId === selected.clip.id))); });
   $('trim-form').addEventListener('submit', (event) => {
@@ -1254,7 +1450,7 @@
     }
   }).observe(scroller);
 
-  async function init() { await refreshTimeline(); }
+  async function init() { await refreshTimeline(); await checkCapcutSyncAvailability(); }
   resetPreviewHeight();
   init();
   setInterval(() => { if (project && document.visibilityState === 'visible') refreshTimeline(); }, 5000);

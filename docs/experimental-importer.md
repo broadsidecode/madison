@@ -51,6 +51,40 @@ local files before conversion. A displayed material name is not a usable source
 file. Network URLs, UNC paths, NUL paths, malformed ranges, non-finite numbers,
 and timeline directory traversal are rejected.
 
+## Optional browser sync
+
+An agent can bind one saved CapCut project and one named timeline when starting
+the local Madison review server. This is opt in and remains on your computer:
+
+```text
+python -m timeline_reviewer serve "my-review" --capcut-project "my-CapCut-project" --capcut-timeline "Timeline 01" --sync-root "my-sync-versions" --open
+```
+
+The sync root must be separate from both the CapCut project and the review
+bundle. Madison never accepts an arbitrary CapCut folder from the browser.
+The agent can also supply a separately installed Tesseract executable with
+`--tesseract` when required. Review only mode still works without this binding.
+
+**Sync from CapCut** checks the saved timeline when you open its panel. The
+change preview compares it with the last successful sync and shows clip and
+duration changes before any import. A first sync shows every clip as new.
+Missing media blocks syncing. Active unsupported features are grouped in the
+warning list and require an explicit acknowledgement; accepting them does not
+recreate their effects. A second check with no new saved changes does not
+create another version.
+
+After you choose to sync, Madison checks that the saved source still matches
+the preview, creates a fresh versioned Tesseract document, renders it, prepares
+a matching review bundle, and then switches the viewer. The previous review
+stays visible during the job and is kept for recovery. If CapCut changes during
+the job or import/render fails, Madison reports the failure and keeps the
+previous review. **Reload viewer** only reloads the current review and never
+starts this process.
+
+Close CapCut or finish saving before syncing. Do not treat a successful sync as
+proof of exact color, effect, or audio parity; compare and audition the new
+movie before using it for delivery. This workflow does not write to CapCut.
+
 ## Conversion boundary
 
 Supported conversion is intentionally narrow:

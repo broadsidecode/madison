@@ -30,6 +30,6 @@ Draft operations and the current version reference are saved in a local private 
 
 ## Keep your place and pop out the preview
 
-**Refresh timeline** checks for updated review data in place. Madison also checks periodically and restores the playhead, zoom, scroll, selected clip when it still exists, divider height, marked range, notes and preview speed after a page reload. If the movie becomes shorter, the playhead moves to its new end.
+**Reload viewer** checks for updated review data in place. It does not import from CapCut. Madison also checks periodically and restores the playhead, zoom, scroll, selected clip when it still exists, divider height, marked range, notes and preview speed after a page reload. If the movie becomes shorter, the playhead moves to its new end.
 
 On browsers supporting Document Picture in Picture, **Pop out preview** opens the same player with simple custom controls. This avoids the browser's dark native control overlay. Where that API is unavailable, Madison offers the browser's standard picture in picture if supported; that browser may shade the picture when its controls appear. The project and playback position stay together when the window closes.

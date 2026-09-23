@@ -2,6 +2,12 @@
 
 Release candidate checked on September 22, 2026. These results describe bounded tests, not a certification that arbitrary editor projects will convert faithfully.
 
+## CapCut sync update
+
+The optional local sync was checked with 77 Python tests (one environment skip), JavaScript syntax, and a validated demo bundle. A separate two second synthetic project completed a real Tesseract import and render, prepared a matching review bundle, and switched the viewer only after verification. The old preview remained available. A second check with no saved source changes created no new version. Browser interaction checked the change preview, Sync button, completed viewer update, and no-change state. Rendered desktop, tablet, and phone checks passed.
+
+The same contract tests cover missing media, stale source revisions, unsupported effect acknowledgement, trimmed audio warnings, failed rendering, and preservation of the prior review. These checks do not prove full CapCut effect or audio fidelity for arbitrary projects. A creator should compare the new movie with the saved CapCut cut before delivery.
+
 ## Local checks
 
 Windows, Python 3.12, Node.js 24 and a fresh headless Chromium browser:

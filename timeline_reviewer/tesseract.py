@@ -29,10 +29,22 @@ class ImportError(ValueError):
 def _run(command: list[str]) -> str:
     if platform.system() == "Windows" and Path(command[0]).suffix.lower() in (".cmd", ".bat"):
         raise ImportError("Batch launchers are not supported; select a native executable to keep media paths outside a command shell")
+    env = None
+    if platform.system() == "Windows" and Path(command[0]).name.lower() == "tsrct.exe":
+        # Obsidian ships a DXC DLL that shadows Tesseract's renderer through
+        # PATH and makes native export exit 0xC000001D. Exclude only that one
+        # directory from this child process; never change the user's PATH.
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data:
+            conflict = os.path.normcase(os.path.normpath(
+                str(Path(local_app_data) / "Programs" / "Obsidian")))
+            env = os.environ.copy()
+            env["PATH"] = ";".join(entry for entry in env.get("PATH", "").split(";")
+                                   if os.path.normcase(os.path.normpath(entry.strip('"'))) != conflict)
     try:
         result = subprocess.run(command, check=False, capture_output=True,
                                 text=True, encoding="utf-8", errors="replace",
-                                stdin=subprocess.DEVNULL, timeout=3600, shell=False)
+                                stdin=subprocess.DEVNULL, timeout=3600, shell=False, env=env)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ImportError(f"Cannot execute {Path(command[0]).name}: {exc}") from exc
     if result.returncode:

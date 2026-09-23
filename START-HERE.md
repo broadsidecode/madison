@@ -28,7 +28,7 @@ For an existing Tesseract project, work from a copy and inspect its native edita
 
 Madison can bind a .tsrct project for limited editing, but it still needs a rendered preview and matching lane metadata using the [bundle format](docs/manifest.md). Derive layer IDs, timing, source ranges, visibility and identities from the same native project revision as the render. Respect nested parent timing and retimes; do not present guessed timing as exact. Use the actual render duration and frame rate, and the rendered mix for the waveform. Follow the [editing guide](docs/editing.md) when the user wants to make edits in Madison.
 
-The preparation command creates one full movie clip if no lane metadata is supplied. Explain that limitation when using it. Only call the result a detailed timeline review when matching lane data has been supplied and checked. There is no automatic native project converter, live connection or background synchronization in this release.
+The preparation command creates one full movie clip if no lane metadata is supplied. Explain that limitation when using it. Only call the result a detailed timeline review when matching lane data has been supplied and checked. CapCut sync is a separate optional local connection; ordinary reviews do not watch or import editor projects.
 
 Keep generated reviews outside this repository and preserve source projects and media. Check picture and audio timing. Tesseract 0.1.0 has shown native audio source offset differences; a completed render does not prove an accurate soundtrack. Say so if audio cannot be auditioned.
 
@@ -44,6 +44,6 @@ Finish with the working URL, project and review locations, simple reopening and 
 
 ## Keep CapCut optional
 
-Only use the [experimental importer](docs/experimental-importer.md) when asked. Inspect the exact named timeline and explain unsupported features first. Import into a new destination, preserve the source, and never enable lossy conversion without the user's agreement. Do not imply that editable transfers work in both directions.
+Only use the [experimental importer and sync](docs/experimental-importer.md) when asked. Bind the exact saved CapCut project and named timeline once on the local server. Explain that **Reload viewer** updates the page, while **Sync from CapCut** reads the saved edit and first shows a change preview. Import into a new destination, preserve the source and older review, and never enable lossy conversion without the user's explicit choice. Do not imply that editable transfers work in both directions.
 
 Use only the demo and files the user provides. Do not upload media, publish projects, commit generated bundles or request unrelated account access during setup.

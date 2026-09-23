@@ -26,7 +26,7 @@ class LocalServer(ThreadingHTTPServer):
         super().server_bind()
 
 
-def make_server(bundle, port=8765, edit_session=None):
+def make_server(bundle, port=8765, edit_session=None, capcut_sync=None):
     if isinstance(port, bool) or not isinstance(port, int) or not 0 <= port <= 65535:
         raise ValueError('Port must be an integer from 0 to 65535.')
     bundle = Path(bundle).resolve()
@@ -68,6 +68,40 @@ def make_server(bundle, port=8765, edit_session=None):
                 'operations': state['operations'], 'manifest': state['manifest'],
                 'sources': sources, 'renderPending': bool(state.get('renderPending', False))}
 
+    def activate_native(document, output):
+        nonlocal edit_session
+        if edit_session is None:
+            return False
+        from .editing import EditSession
+        with edit_lock:
+            roots = [*edit_session.media_roots, output]
+            # Validate every new layer against the matching native project
+            # before moving the clean draft from the previous review.
+            preflight = EditSession(output / 'review-bundle', document,
+                                    cli=edit_session.cli, media_roots=roots)
+            preflight_record, _, preflight_native, _, _ = preflight._current()
+            for track in preflight_record['baseManifest']['tracks']:
+                for clip in track['clips']:
+                    if clip.get('layerId') is not None:
+                        preflight._target(preflight_record['baseManifest'], preflight_native,
+                                          clip['id'], clip['layerId'])
+            # A clean draft still binds the previous native checksum. Keep it
+            # with the retained version before creating a fresh edit session.
+            draft = edit_session.draft_path
+            if draft.is_file():
+                archived = output / 'previous-edit-draft.json'
+                if archived.exists():
+                    raise ValueError('Cannot preserve the previous edit draft.')
+                os.replace(draft, archived)
+            updated = EditSession(bundle, document, cli=edit_session.cli, media_roots=roots)
+            record, _, native, _, _ = updated._current()
+            for track in record['baseManifest']['tracks']:
+                for clip in track['clips']:
+                    if clip.get('layerId') is not None:
+                        updated._target(record['baseManifest'], native, clip['id'], clip['layerId'])
+            edit_session = updated
+            return True
+
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.1'
 
@@ -98,7 +132,8 @@ def make_server(bundle, port=8765, edit_session=None):
             route = self.route(False)
             if route is None:
                 return
-            if edit_session is None or route not in ('/edit-draft', '/edit-commit'):
+            sync_route = route == '/capcut-sync-start' and capcut_sync is not None
+            if not sync_route and (edit_session is None or route not in ('/edit-draft', '/edit-commit')):
                 return self.reject_write()
             expected_origin = f'http://127.0.0.1:{self.server.server_port}'
             if self.headers.get('Origin') != expected_origin or self.headers.get('X-Madison-Edit-Token') != edit_token:
@@ -110,9 +145,23 @@ def make_server(bundle, port=8765, edit_session=None):
                 if length < 2 or length > 64 * 1024:
                     raise ValueError('Edit request size is unsupported')
                 request = json.loads(self.rfile.read(length))
-                if not isinstance(request, dict) or not isinstance(request.get('revision'), str):
+                if not isinstance(request, dict):
+                    raise ValueError('Send a JSON object.')
+                if sync_route:
+                    if set(request) != {'expectedSourceHash', 'allowLossy'}:
+                        raise ValueError('Supply the reviewed source hash and allowLossy choice.')
+                    with edit_lock:
+                        if edit_session is not None and edit_session.state()['operations']:
+                            raise ValueError('Save or discard pending Madison edits before syncing CapCut.')
+                    callback = activate_native if edit_session is not None else None
+                    result = capcut_sync.start(request['expectedSourceHash'], request['allowLossy'], callback)
+                    return self.message(202, json.dumps(result, ensure_ascii=False),
+                                        mime='application/json; charset=utf-8')
+                if not isinstance(request.get('revision'), str):
                     raise ValueError('An edit revision is required')
                 with edit_lock:
+                    if capcut_sync is not None and capcut_sync.status()['state'] == 'running':
+                        raise ValueError('CapCut sync is running. Wait for it to finish before editing.')
                     if route == '/edit-draft':
                         if set(request) != {'revision', 'operations'} or not isinstance(request['operations'], list):
                             raise ValueError('Supply a complete list of draft operations')
@@ -175,6 +224,24 @@ def make_server(bundle, port=8765, edit_session=None):
                         state = {'enabled': False, 'rebindRequired': True,
                                  'error': str(exc)}
                     return self.message(200, json.dumps(state, ensure_ascii=False), head, 'application/json; charset=utf-8')
+            if route == '/capcut-sync-state':
+                if capcut_sync is None:
+                    return self.message(200, json.dumps({'enabled': False}), head,
+                                        'application/json; charset=utf-8')
+                try:
+                    current, _ = current_bundle()
+                    state = capcut_sync.state(current['revision'])
+                    state['csrfToken'] = edit_token
+                except (ValueError, OSError) as exc:
+                    return self.message(503, json.dumps({'enabled': True,
+                        'error': 'The selected CapCut timeline could not be inspected. Check the saved project and local media.'}), head,
+                                        'application/json; charset=utf-8')
+                return self.message(200, json.dumps(state, ensure_ascii=False), head,
+                                    'application/json; charset=utf-8')
+            if route == '/capcut-sync-status':
+                state = capcut_sync.status() if capcut_sync is not None else {'enabled': False, 'state': 'idle'}
+                return self.message(200, json.dumps(state, ensure_ascii=False), head,
+                                    'application/json; charset=utf-8')
             if route == '/data.json':
                 try:
                     current, _ = current_bundle()

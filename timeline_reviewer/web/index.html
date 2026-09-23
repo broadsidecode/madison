@@ -65,7 +65,7 @@
         <div class="cut-controls" aria-label="Navigate the movie"><button id="previous-cut" type="button" aria-label="Previous picture cut" title="Previous picture cut">Cut &lsaquo;</button><button id="frame-back" type="button" aria-label="Previous frame" title="Previous frame. Left arrow">&#9664;</button><button id="frame-forward" type="button" aria-label="Next frame" title="Next frame. Right arrow">&#9654;</button><button id="next-cut" type="button" aria-label="Next picture cut" title="Next picture cut">Cut &rsaquo;</button></div>
         <form id="timecode-form" class="timecode-form"><label for="timecode-input">Time</label><input id="timecode-input" type="text" value="00:00.000" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Jump to time. Minutes, seconds and optional milliseconds." aria-describedby="timecode-status"><button id="jump-time" type="submit">Go</button></form>
         <label class="speed-control">Preview speed <select id="playback-rate" aria-label="Preview playback speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></label>
-        <button id="refresh-timeline" type="button">Refresh timeline</button><span id="refresh-status" role="status" aria-live="polite"></span><span id="frame-rate" class="muted"></span><p id="timecode-status" role="status"></p>
+        <button id="refresh-timeline" type="button" title="Reload the Madison viewer. This does not import from CapCut.">Reload viewer</button><button id="capcut-sync-open" type="button" class="primary-button" hidden>Sync from CapCut</button><span id="refresh-status" role="status" aria-live="polite"></span><span id="frame-rate" class="muted"></span><p id="timecode-status" role="status"></p>
       </div>
       <div class="range-toolbar" aria-label="Feedback range"><span class="range-heading">Feedback range</span><button id="mark-in" type="button" title="Mark in. I">Mark in <kbd>I</kbd></button><button id="mark-out" type="button" title="Mark out. O">Mark out <kbd>O</kbd></button><output id="range-display">No range marked</output><button id="clear-range" type="button" disabled>Clear</button><label class="loop-control"><input id="loop-range" type="checkbox" disabled>Loop range</label></div>
       <div class="timeline-toolbar">
@@ -85,5 +85,18 @@
       <footer class="timeline-footer"><ul id="project-notes" hidden></ul><details class="shortcut-help"><summary>Shortcuts</summary><p>Space: play or pause<br>Left / Right: one frame<br>Shift + Left / Right: five seconds<br>I / O: mark feedback range<br>Ctrl or Cmd + wheel: zoom<br>Shift + wheel: scroll across<br>Middle mouse drag: pan<br>Drag the ruler, waveform or playhead to scrub.<br>Drag the divider to resize the preview.</p></details><span id="revision-label"></span></footer>
     </section>
   </main>
+  <dialog id="capcut-sync-dialog" aria-labelledby="capcut-sync-title" aria-describedby="capcut-sync-intro">
+    <div class="capcut-sync-panel">
+      <h2 id="capcut-sync-title">Sync from CapCut</h2>
+      <p id="capcut-sync-intro">Review the saved CapCut changes before importing them into Madison and Tesseract.</p>
+      <p id="capcut-sync-project" class="capcut-sync-project"></p>
+      <p id="capcut-sync-summary" class="capcut-sync-summary"></p>
+      <ul id="capcut-sync-examples" class="capcut-sync-list"></ul>
+      <div id="capcut-sync-warnings" class="capcut-sync-warnings" hidden><h3>Needs review</h3><ul id="capcut-sync-warning-list" class="capcut-sync-list"></ul></div>
+      <label id="capcut-sync-lossy-row" class="capcut-sync-lossy" hidden><input id="capcut-sync-lossy" type="checkbox">I understand some CapCut effects or audio may differ.</label>
+      <p id="capcut-sync-status" class="capcut-sync-status" role="status" aria-live="polite"></p>
+      <div class="capcut-sync-actions"><button id="capcut-sync-close" type="button">Close</button><button id="capcut-sync-confirm" type="button" class="primary-button" disabled>Sync these changes</button></div>
+    </div>
+  </dialog>
 </body>
 </html>

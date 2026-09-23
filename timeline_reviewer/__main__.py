@@ -21,6 +21,12 @@ def parser():
             item.add_argument('--media-root', type=Path, action='append', default=[],
                               help='Permit draft preview of source video within this trusted local folder; repeat as needed')
             item.add_argument('--tesseract', help='Path to a separately installed Tesseract CLI')
+            item.add_argument('--capcut-project', type=Path,
+                              help='Opt in to sync from this exact saved local CapCut project folder')
+            item.add_argument('--capcut-timeline',
+                              help='Exact nested CapCut timeline name to inspect')
+            item.add_argument('--sync-root', type=Path,
+                              help='Separate local folder for retained sync versions and last successful comparison')
         item.add_argument('--port', type=int, default=8765)
         item.add_argument('--open', action='store_true', help='Open the local URL in your default browser')
     item = commands.add_parser('validate', help='Validate a bundle and its referenced files')
@@ -56,10 +62,21 @@ def main(argv=None):
                 edit_session = EditSession(bundle, args.editable_project,
                                            cli=args.tesseract, media_roots=args.media_root or None)
             elif args.command == 'serve' and (args.media_root or args.tesseract):
-                raise ValueError('--media-root and --tesseract require --editable-project')
-            with make_server(bundle, args.port, edit_session=edit_session) as server:
+                if args.media_root or not (args.capcut_project and args.capcut_timeline and args.sync_root):
+                    raise ValueError('--media-root requires --editable-project; --tesseract requires --editable-project or all CapCut sync options')
+            capcut_options = (args.capcut_project, args.capcut_timeline, args.sync_root) if args.command == 'serve' else ()
+            if capcut_options and any(value is not None for value in capcut_options) and not all(value is not None for value in capcut_options):
+                raise ValueError('--capcut-project, --capcut-timeline, and --sync-root must be supplied together')
+            capcut_sync = None
+            if capcut_options and all(value is not None for value in capcut_options):
+                from .sync import CapCutSync
+                capcut_sync = CapCutSync(bundle, args.capcut_project, args.capcut_timeline,
+                                        args.sync_root, cli=args.tesseract)
+            with make_server(bundle, args.port, edit_session=edit_session, capcut_sync=capcut_sync) as server:
                 address = f'http://127.0.0.1:{server.server_port}/'
                 mode = 'Limited local editing' if edit_session else 'Read only'
+                if capcut_sync:
+                    mode += ' with optional CapCut sync'
                 print(f'Madison: {address}\n{mode}. Press Ctrl+C to stop.', flush=True)
                 if args.open:
                     webbrowser.open(address)
