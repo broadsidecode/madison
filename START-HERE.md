@@ -44,6 +44,6 @@ Finish with the working URL, project and review locations, simple reopening and 
 
 ## Keep CapCut optional
 
-Only use the [experimental importer and sync](docs/experimental-importer.md) when asked. Bind the exact saved CapCut project and named timeline once on the local server. Explain that **Reload viewer** updates the page, while **Sync from CapCut** reads the saved edit and first shows a change preview. Import into a new destination, preserve the source and older review, and never enable lossy conversion without the user's explicit choice. Do not imply that editable transfers work in both directions.
+The normal review should show **Connect CapCut** with setup guidance. It is not an active import. Only use the [experimental importer and sync](docs/experimental-importer.md) when asked. Bind the exact saved CapCut project and named timeline once on the local server, then verify the page says **Sync from CapCut**. Explain that **Reload viewer** updates the page, while **Sync from CapCut** reads the saved edit and first shows a change preview. Import into a new destination, preserve the source and older review, and never enable lossy conversion without the user's explicit choice. Do not imply that editable transfers work in both directions.
 
 Use only the demo and files the user provides. Do not upload media, publish projects, commit generated bundles or request unrelated account access during setup.

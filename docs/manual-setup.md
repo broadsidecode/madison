@@ -91,7 +91,7 @@ python -m timeline_reviewer import-capcut "/path/to/CapCut/project" --timeline "
 
 Unsupported active features stop the conversion by default. The optional `--allow-lossy` flag explicitly accepts reported omissions; it does not make the conversion faithful. Rendering is off by default and requires `--render`.
 
-To check saved changes and start a versioned import from the browser instead, use the opt-in local server binding in the [CapCut sync guide](experimental-importer.md#optional-browser-sync). The separate **Reload viewer** button never imports. Keep the sync output folder outside both the source project and review bundle.
+To check saved changes and start a versioned import from the browser instead, choose **Connect CapCut** in the viewer and follow its agent setup request. The agent uses the local server binding in the [CapCut sync guide](experimental-importer.md#optional-browser-sync). The separate **Reload viewer** button never imports. Keep the sync output folder outside both the source project and review bundle.
 
 **Known boundaries:** proprietary color matching, complex effects, volume automation and fades, some mute/pitch settings, nested timelines and other unsupported features can require rebuilding. Tesseract 0.1.0 controls export size and frame rate automatically; native audio export has shown timing differences. Inspect and audition any imported draft against a reference export before using it as a final film.
 

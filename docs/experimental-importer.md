@@ -53,6 +53,10 @@ and timeline directory traversal are rejected.
 
 ## Optional browser sync
 
+Every review shows **Connect CapCut** until a saved project is bound. It offers
+a short request to copy to a local agent. The unconnected page does not read
+CapCut or import media. After setup, the button becomes **Sync from CapCut**.
+
 An agent can bind one saved CapCut project and one named timeline when starting
 the local Madison review server. This is opt in and remains on your computer:
 

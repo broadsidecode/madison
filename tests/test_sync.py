@@ -9,11 +9,49 @@ import unittest
 from unittest.mock import patch, Mock
 
 from timeline_reviewer.server import make_server
-from timeline_reviewer.sync import CapCutSync
+from timeline_reviewer.sync import CapCutSync, _diff
 from timeline_reviewer import tesseract
 from timeline_reviewer.capcut import file_hash, inspect_project
 from test_capcut import fixture, write_json
 from test_manifest import manifest
+
+
+class DiffTests(unittest.TestCase):
+    def setUp(self):
+        self.clip = {
+            'id': 'clip-one', 'name': 'clip.mp4', 'track_index': 1,
+            'source_timerange_us': {'start': 0, 'duration': 2_000_000},
+            'target_timerange_us': {'start': 1_000_000, 'duration': 2_000_000},
+            'type': 'video', 'path': 'clip.mp4', 'hidden': False,
+            'volume': 1, 'speed': 1, 'transform': {},
+        }
+
+    def compare(self, **updates):
+        old = dict(self.clip)
+        new = dict(self.clip, **updates)
+        return _diff({'duration': 3.0, 'segments': [old]},
+                     {'duration': 3.0, 'segments': [new]})
+
+    def test_lane_change_is_not_a_timeline_move(self):
+        diff = self.compare(track_index=2)
+        self.assertEqual((diff['laneChanged'], diff['moved'], diff['nudged']), (1, 0, 0))
+        self.assertTrue(any('Changed lane' in text for text in diff['examples']))
+
+    def test_microsecond_rounding_is_not_trim_or_move(self):
+        diff = self.compare(
+            source_timerange_us={'start': 1, 'duration': 1_999_999},
+            target_timerange_us={'start': 1_000_001, 'duration': 1_999_999})
+        self.assertEqual((diff['trimmed'], diff['moved'], diff['nudged']), (0, 0, 0))
+
+    def test_start_shift_over_fifty_milliseconds_is_moved(self):
+        diff = self.compare(target_timerange_us={'start': 1_050_001, 'duration': 2_000_000})
+        self.assertEqual((diff['moved'], diff['nudged'], diff['laneChanged']), (1, 0, 0))
+
+    def test_small_timing_change_is_nudged_and_real_trim_is_counted(self):
+        diff = self.compare(
+            source_timerange_us={'start': 1_001, 'duration': 1_998_999},
+            target_timerange_us={'start': 1_050_000, 'duration': 1_998_999})
+        self.assertEqual((diff['nudged'], diff['moved'], diff['trimmed']), (1, 0, 1))
 
 
 class SyncTests(unittest.TestCase):

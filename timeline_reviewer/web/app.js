@@ -42,6 +42,7 @@
   let capcutSyncBusy = false;
   let capcutSyncPoll = null;
   let capcutSyncWasLossy = false;
+  let capcutConnected = false;
   let renderPending = false;
   let sourceClipId = null;
   const failedSourceUrls = new Set();
@@ -464,7 +465,7 @@
   function renderEditUI() {
     const enabled = Boolean(editState?.enabled);
     $('edit-toolbar').hidden = !enabled;
-    $('mode-label').textContent = enabled ? 'Tesseract editing' : $('capcut-sync-open').hidden ? 'Review only' : 'CapCut sync available';
+    $('mode-label').textContent = enabled ? 'Tesseract editing' : capcutConnected ? 'CapCut sync available' : 'Review only';
     if (!enabled) return;
     const ops = editState.operations || [];
     $('edit-count').textContent = ops.length ? `${ops.length} change${ops.length === 1 ? '' : 's'} queued` : 'No changes queued';
@@ -995,7 +996,42 @@
 
   function updateCapcutSyncButton() {
     $('capcut-sync-confirm').disabled = !capcutSyncReady();
-    $('capcut-sync-open').textContent = capcutSyncBusy ? 'CapCut sync in progress' : 'Sync from CapCut';
+    $('capcut-sync-open').textContent = capcutConnected ? capcutSyncBusy ? 'CapCut sync in progress' : 'Sync from CapCut' : 'Connect CapCut';
+  }
+
+  function showCapcutSetup() {
+    $('capcut-sync-title').textContent = 'Connect CapCut';
+    $('capcut-sync-intro').textContent = 'Set up optional local sync for a saved CapCut project.';
+    $('capcut-sync-setup').hidden = false;
+    $('capcut-sync-project').hidden = true;
+    $('capcut-sync-summary').hidden = true;
+    $('capcut-sync-examples').hidden = true;
+    $('capcut-sync-warnings').hidden = true;
+    $('capcut-sync-lossy-row').hidden = true;
+    $('capcut-sync-confirm').hidden = true;
+    capcutSyncMessage('No CapCut project is connected to this viewer.');
+  }
+
+  function showCapcutReview() {
+    $('capcut-sync-title').textContent = 'Sync from CapCut';
+    $('capcut-sync-intro').textContent = 'Review the saved CapCut changes before importing them into Madison and Tesseract.';
+    $('capcut-sync-setup').hidden = true;
+    $('capcut-sync-project').hidden = false;
+    $('capcut-sync-summary').hidden = false;
+    $('capcut-sync-examples').hidden = false;
+    $('capcut-sync-confirm').hidden = false;
+  }
+
+  async function copyCapcutSetupPrompt() {
+    const prompt = $('capcut-setup-prompt');
+    try {
+      await navigator.clipboard.writeText(prompt.value);
+      capcutSyncMessage('Setup prompt copied. Paste it into your local agent.');
+    } catch {
+      prompt.focus();
+      prompt.select();
+      capcutSyncMessage('Select and copy the highlighted prompt.');
+    }
   }
 
   function addCapcutSyncItem(list, value) {
@@ -1011,7 +1047,9 @@
     $('capcut-sync-project').textContent = name || 'Selected CapCut project';
     const diff = state.diff || {};
     const counts = [
-      ['added', 'added'], ['removed', 'removed'], ['moved', 'moved'], ['trimmed', 'trimmed'], ['changed', 'changed'],
+      ['added', 'added'], ['removed', 'removed'], ['moved', 'moved'],
+      ['nudged', 'small timing shifts'], ['laneChanged', 'lane changes'],
+      ['trimmed', 'trimmed'], ['changed', 'changed'],
     ].map(([key, label]) => `${Number(diff[key]) || 0} ${label}`);
     const before = Number(diff.previousDuration);
     const after = Number(diff.currentDuration);
@@ -1065,9 +1103,10 @@
     try {
       const response = await fetch('./capcut-sync-state', { cache: 'no-store' });
       const state = await response.json();
-      $('capcut-sync-open').hidden = state?.enabled !== true;
+      capcutConnected = state?.enabled === true;
+      updateCapcutSyncButton();
       renderEditUI();
-      if (state?.enabled !== true || !response.ok) return;
+      if (!capcutConnected || !response.ok) return;
       if (!capcutSyncBusy) capcutSyncState = state;
       try {
         const response = await fetch('./capcut-sync-status', { cache: 'no-store' });
@@ -1078,13 +1117,19 @@
         }
       } catch { /* A status check can be retried when the review is opened. */ }
     } catch {
-      if (!capcutSyncBusy) $('capcut-sync-open').hidden = true;
+      if (!capcutSyncBusy) {
+        capcutConnected = false;
+        updateCapcutSyncButton();
+        renderEditUI();
+      }
     }
   }
 
   async function openCapcutSyncReview() {
     if (!$('capcut-sync-dialog').open) $('capcut-sync-dialog').showModal();
     $('capcut-sync-close').focus();
+    if (!capcutConnected) { showCapcutSetup(); return; }
+    showCapcutReview();
     if (capcutSyncBusy) { capcutSyncMessage('Checking CapCut sync progress…'); return; }
     capcutSyncState = null;
     $('capcut-sync-project').textContent = '';
@@ -1248,6 +1293,7 @@
   $('refresh-timeline').addEventListener('click', () => refreshTimeline(true));
   $('capcut-sync-open').addEventListener('click', openCapcutSyncReview);
   $('capcut-sync-close').addEventListener('click', () => $('capcut-sync-dialog').close());
+  $('capcut-setup-copy').addEventListener('click', copyCapcutSetupPrompt);
   $('capcut-sync-confirm').addEventListener('click', startCapcutSync);
   $('capcut-sync-lossy').addEventListener('change', updateCapcutSyncButton);
   $('remove-clip').addEventListener('click', () => { if (selected) setClipOperation({ type: 'remove', clipId: selected.clip.id }); });

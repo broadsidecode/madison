@@ -46,7 +46,8 @@ def _audio_offset_segments(report: dict) -> list[dict]:
 def _diff(previous: dict | None, current: dict) -> dict:
     before = {item["id"]: item for item in (previous or {}).get("segments", [])}
     after = {item["id"]: item for item in current["segments"]}
-    changes = {"added": 0, "removed": 0, "moved": 0, "trimmed": 0, "changed": 0,
+    changes = {"added": 0, "removed": 0, "moved": 0, "nudged": 0,
+               "laneChanged": 0, "trimmed": 0, "changed": 0,
                "previousDuration": (previous or {}).get("duration"),
                "currentDuration": current["duration"], "examples": []}
     def example(message):
@@ -59,12 +60,20 @@ def _diff(previous: dict | None, current: dict) -> dict:
             changes["added"] += 1
             example(f"Added {name} at {item['target_timerange_us']['start'] / 1e6:.3f}s")
             continue
-        if (old["target_timerange_us"]["start"] != item["target_timerange_us"]["start"]
-                or old["track_index"] != item["track_index"]):
+        start_shift = abs(old["target_timerange_us"]["start"] - item["target_timerange_us"]["start"])
+        if start_shift > 50_000:
             changes["moved"] += 1
             example(f"Moved {name} to {item['target_timerange_us']['start'] / 1e6:.3f}s")
-        if (old["source_timerange_us"] != item["source_timerange_us"]
-                or old["target_timerange_us"]["duration"] != item["target_timerange_us"]["duration"]):
+        elif start_shift > 1_000:
+            changes["nudged"] += 1
+            example(f"Adjusted timing for {name} by {start_shift / 1e3:.0f}ms")
+        if old["track_index"] != item["track_index"]:
+            changes["laneChanged"] += 1
+            example(f"Changed lane for {name}")
+        if (any(abs(old["source_timerange_us"][key] - item["source_timerange_us"][key]) > 1_000
+                for key in ("start", "duration"))
+                or abs(old["target_timerange_us"]["duration"]
+                       - item["target_timerange_us"]["duration"]) > 1_000):
             changes["trimmed"] += 1
             example(f"Trimmed {name}")
         if any(old[key] != item[key] for key in

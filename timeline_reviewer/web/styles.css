@@ -104,6 +104,12 @@ body[data-panning="true"],body[data-panning="true"] *{cursor:grabbing!important;
 .capcut-sync-panel h2{font-size:19px}
 .capcut-sync-panel h3{font-size:13px;margin-bottom:5px}
 #capcut-sync-intro{color:#c2d0cf}
+.capcut-sync-setup{display:grid;gap:10px;padding:12px;border:1px solid #435d5a;border-radius:5px;background:#203432}
+.capcut-sync-setup[hidden]{display:none}
+.capcut-sync-setup ol{margin:0;padding-left:20px}
+.capcut-sync-setup label{font-weight:650}
+.capcut-sync-setup textarea{width:100%;min-height:126px;resize:vertical;padding:9px;border:1px solid #5d827e;border-radius:4px;background:#111b1c;color:#e5f2ef;font-size:12px;line-height:1.5}
+.capcut-sync-setup button{justify-self:start}
 .capcut-sync-project{font-weight:650;overflow-wrap:anywhere}
 .capcut-sync-summary{padding:10px 12px;border:1px solid #435d5a;border-radius:5px;background:#203432;font-variant-numeric:tabular-nums}
 .capcut-sync-list{margin:0;padding-left:20px;max-height:150px;overflow:auto;overflow-wrap:anywhere}

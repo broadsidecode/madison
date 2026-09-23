@@ -42,7 +42,7 @@ Pop out the video onto another screen and resize its window. View picture and au
 
 Madison saves your basic edits into a new Tesseract project version, preserving the previous version. Source clips can show a quick draft picture when their files are available. The final movie and soundtrack still need a fresh render before delivery. Copy any unsent notes before closing the page.
 
-If you use CapCut, your agent can connect one saved project to Madison. **Sync from CapCut** then shows what changed and which effects or audio may differ before you choose to import. It builds a new local Tesseract version and keeps the previous review visible until the new movie is ready. **Reload viewer** only updates the browser view; it does not read CapCut. This optional sync remains experimental, so compare the result with your CapCut cut before delivery.
+The normal demo shows **Connect CapCut** so you can see how to set it up. That button does not import a project by itself. If you use CapCut, your local agent can connect one saved project to Madison. The button then becomes **Sync from CapCut** and shows what changed and which effects or audio may differ before you choose to import. It builds a new local Tesseract version and keeps the previous review visible until the new movie is ready. **Reload viewer** only updates the browser view; it does not read CapCut. This optional sync remains experimental, so compare the result with your CapCut cut before delivery.
 
 ## Optional extras
 

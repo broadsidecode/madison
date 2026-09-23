@@ -65,7 +65,7 @@
         <div class="cut-controls" aria-label="Navigate the movie"><button id="previous-cut" type="button" aria-label="Previous picture cut" title="Previous picture cut">Cut &lsaquo;</button><button id="frame-back" type="button" aria-label="Previous frame" title="Previous frame. Left arrow">&#9664;</button><button id="frame-forward" type="button" aria-label="Next frame" title="Next frame. Right arrow">&#9654;</button><button id="next-cut" type="button" aria-label="Next picture cut" title="Next picture cut">Cut &rsaquo;</button></div>
         <form id="timecode-form" class="timecode-form"><label for="timecode-input">Time</label><input id="timecode-input" type="text" value="00:00.000" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Jump to time. Minutes, seconds and optional milliseconds." aria-describedby="timecode-status"><button id="jump-time" type="submit">Go</button></form>
         <label class="speed-control">Preview speed <select id="playback-rate" aria-label="Preview playback speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></label>
-        <button id="refresh-timeline" type="button" title="Reload the Madison viewer. This does not import from CapCut.">Reload viewer</button><button id="capcut-sync-open" type="button" class="primary-button" hidden>Sync from CapCut</button><span id="refresh-status" role="status" aria-live="polite"></span><span id="frame-rate" class="muted"></span><p id="timecode-status" role="status"></p>
+        <button id="refresh-timeline" type="button" title="Reload the Madison viewer. This does not import from CapCut.">Reload viewer</button><button id="capcut-sync-open" type="button" class="primary-button">Connect CapCut</button><span id="refresh-status" role="status" aria-live="polite"></span><span id="frame-rate" class="muted"></span><p id="timecode-status" role="status"></p>
       </div>
       <div class="range-toolbar" aria-label="Feedback range"><span class="range-heading">Feedback range</span><button id="mark-in" type="button" title="Mark in. I">Mark in <kbd>I</kbd></button><button id="mark-out" type="button" title="Mark out. O">Mark out <kbd>O</kbd></button><output id="range-display">No range marked</output><button id="clear-range" type="button" disabled>Clear</button><label class="loop-control"><input id="loop-range" type="checkbox" disabled>Loop range</label></div>
       <div class="timeline-toolbar">
@@ -89,6 +89,13 @@
     <div class="capcut-sync-panel">
       <h2 id="capcut-sync-title">Sync from CapCut</h2>
       <p id="capcut-sync-intro">Review the saved CapCut changes before importing them into Madison and Tesseract.</p>
+      <div id="capcut-sync-setup" class="capcut-sync-setup" hidden>
+        <p>CapCut is optional. A local agent needs to connect one saved CapCut project to this viewer before syncing is available. This page does not read CapCut yet.</p>
+        <ol><li>Save your changes in CapCut.</li><li>Copy this prompt to your local agent.</li><li>Once the agent has connected the project, reopen the viewer and choose Sync from CapCut.</li></ol>
+        <label for="capcut-setup-prompt">Prompt for your local agent</label>
+        <textarea id="capcut-setup-prompt" rows="5" readonly>Connect my saved CapCut project to Madison's optional local sync. Find the exact project and timeline with me, inspect the saved timeline and source media, and choose a separate folder for retained sync versions. Start the local Madison review server with that binding. Keep my CapCut project unchanged. Show me the connected viewer and explain any effects or audio that may differ before the first sync.</textarea>
+        <button id="capcut-setup-copy" type="button">Copy setup prompt</button>
+      </div>
       <p id="capcut-sync-project" class="capcut-sync-project"></p>
       <p id="capcut-sync-summary" class="capcut-sync-summary"></p>
       <ul id="capcut-sync-examples" class="capcut-sync-list"></ul>
