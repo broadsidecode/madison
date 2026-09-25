@@ -92,7 +92,7 @@ First inspect the saved project:
 python -m timeline_reviewer inspect-capcut "/path/to/CapCut/project" --timeline "Timeline 01" --report "inspection.json"
 ```
 
-Then, with Tesseract 0.1.0 installed separately on Windows or macOS:
+Then, with Tesseract 0.2.0 or 0.1.0 installed separately on Windows or macOS:
 
 ```sh
 python -m timeline_reviewer import-capcut "/path/to/CapCut/project" --timeline "Timeline 01" --output "../new-tesseract-import"
@@ -102,7 +102,7 @@ Unsupported active features stop the conversion by default. The optional `--allo
 
 To check saved changes and start a versioned import from the browser instead, choose **Connect CapCut** in the viewer and follow its agent setup request. The agent uses the local server binding in the [CapCut sync guide](experimental-importer.md#optional-browser-sync). The separate **Reload viewer** button never imports. Keep the sync output folder outside both the source project and review bundle.
 
-**Known boundaries:** proprietary color matching, complex effects, volume automation and fades, some mute/pitch settings, nested timelines and other unsupported features can require rebuilding. Tesseract 0.1.0 controls export size and frame rate automatically; native audio export has shown timing differences. Inspect and audition any imported draft against a reference export before using it as a final film.
+**Known boundaries:** proprietary color matching, complex effects, volume automation and fades, some mute/pitch settings, nested timelines and other unsupported features can require rebuilding. Tesseract controls export size and frame rate automatically; native audio export has shown timing differences. Inspect and audition any imported draft against a reference export before using it as a final film.
 
 [Importer setup and supported behavior](experimental-importer.md)
 

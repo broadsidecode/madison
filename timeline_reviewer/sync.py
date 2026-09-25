@@ -36,7 +36,7 @@ def _safe_identity(value: str | None) -> str | None:
 
 
 def _audio_offset_segments(report: dict) -> list[dict]:
-    # Tesseract 0.1.0 imports the layer range, but its native renderer has a
+    # Tesseract imports the layer range, but its native renderer (seen in 0.1.0) has a
     # known source-offset limitation for audio clips. The issue is material to
     # a music edit even when CapCut has no unsupported effect flags.
     return [segment for segment in report["segments"] if segment["type"] == "audio"
@@ -186,7 +186,7 @@ class CapCutSync:
         if offsets:
             grouped["audio_source_offset"] = {
                 "code": "audio_source_offset",
-                "detail": "Tesseract 0.1.0 may render trimmed audio from the wrong source position. Check the export against CapCut.",
+                "detail": "Tesseract may render trimmed audio from the wrong source position. Check the export against CapCut.",
                 "count": len(offsets), "examples": [_short_name(item) for item in offsets[:3]]}
         missing = report["missing_media"]
         unchanged = self.previous is not None and self.previous.get("sourceHash") == current["sourceHash"]

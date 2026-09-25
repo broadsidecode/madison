@@ -1,4 +1,4 @@
-"""Optional, experimental CapCut to Tesseract 0.1.0 conversion.
+"""Optional, experimental CapCut to Tesseract 0.2.0 or 0.1.0 conversion.
 
 Only subprocess calls to separately installed tools are made. No installation,
 license acceptance, network request, or modification of an input is performed.
@@ -16,7 +16,10 @@ import subprocess
 
 from .capcut import file_hash, inspect_project
 
-CLI_VERSION = "0.1.0"
+# Newest first. Both share document formatVersion 1 and were verified against
+# real engines; any other version is refused rather than guessed.
+SUPPORTED_CLI_VERSIONS = ("0.2.0", "0.1.0")
+SUPPORTED_TEXT = " or ".join(SUPPORTED_CLI_VERSIONS)
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg"}
 RENDER_CANVASES = {(1080, 1920), (1920, 1080), (1080, 1080),
                    (1080, 1350), (810, 1080), (1350, 1080)}
@@ -64,14 +67,26 @@ def _json_run(command: list[str]) -> dict:
     return result
 
 
+def cli_version(executable: str) -> str:
+    """Return the selected CLI's version, refusing any version not verified here."""
+    version = _run([executable, "--version"])
+    versions = re.findall(r"(?<![\d.])\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?(?![\d.])", version)
+    if len(versions) != 1 or versions[0] not in SUPPORTED_CLI_VERSIONS:
+        raise ImportError(f"This adapter requires Tesseract {SUPPORTED_TEXT}; the selected CLI reports {version!r}.")
+    return versions[0]
+
+
 def resolve_cli(cli: str | None = None) -> str:
     system = platform.system()
     if system not in ("Windows", "Darwin"):
         raise ImportError("Tesseract import supports Windows and macOS only; CapCut inspection works on this host.")
     local_app_data = os.environ.get("LOCALAPPDATA")
     windows_base = Path(local_app_data) / "Tesseract" if local_app_data else None
-    windows_native = (windows_base / "public-cli" / "0.1.0-x86_64" / "bin" / "tsrct.exe"
-                      if windows_base else None)
+    # The official installer keeps each version in its own folder behind one
+    # shim. Prefer the newest supported native executable that is present.
+    windows_native = next((candidate for candidate in (
+        windows_base / "public-cli" / f"{version}-x86_64" / "bin" / "tsrct.exe"
+        for version in SUPPORTED_CLI_VERSIONS) if candidate.is_file()), None) if windows_base else None
     if cli:
         path = Path(cli).expanduser()
         resolved = str(path.resolve()) if path.is_file() else shutil.which(cli)
@@ -87,7 +102,7 @@ def resolve_cli(cli: str | None = None) -> str:
                 candidates = [Path.home() / "Library/Application Support/Tesseract/bin/tsrct"]
             resolved = next((str(path) for path in candidates if path.is_file()), None)
     if not resolved:
-        raise ImportError("Tesseract 0.1.0 is not installed or not found. Install it separately and pass --tesseract; no installation was attempted.")
+        raise ImportError(f"Tesseract {SUPPORTED_TEXT} is not installed or not found. Install it separately and pass --tesseract; no installation was attempted.")
     if system == "Windows" and Path(resolved).suffix.lower() in (".cmd", ".bat"):
         official_shim = windows_base / "bin" / "tsrct.cmd" if windows_base else None
         if (official_shim and Path(resolved).resolve() == official_shim.resolve()
@@ -95,10 +110,7 @@ def resolve_cli(cli: str | None = None) -> str:
             resolved = str(windows_native.resolve())
         else:
             raise ImportError("Windows batch launchers are not supported. Pass the actual native tsrct.exe using --tesseract; the launcher was not executed.")
-    version = _run([resolved, "--version"])
-    versions = re.findall(r"(?<![\d.])\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?(?![\d.])", version)
-    if versions != [CLI_VERSION]:
-        raise ImportError(f"This adapter requires Tesseract {CLI_VERSION}; the selected CLI reports {version!r}.")
+    cli_version(resolved)
     return resolved
 
 
@@ -172,7 +184,7 @@ def _verify_readback(final: dict, authored: dict, actions: list[dict]) -> None:
             for field, value in transform.items():
                 if field not in expected["transform"] and (field not in neutral_transform or value != neutral_transform[field]):
                     raise ImportError(f"Native readback added a non-neutral transform {field} for layer {expected['id']}")
-        # In 0.1.0 the setFxLayerTimeRemap action persists as layer.playback.
+        # In 0.1.0 and 0.2.0 the setFxLayerTimeRemap action persists as layer.playback.
         if expected["id"] in remaps:
             if actual.get("playback") != remaps[expected["id"]]:
                 raise ImportError(f"Native readback changed playback remap for layer {expected['id']}")
@@ -210,8 +222,9 @@ def import_project(project_dir: Path, timeline_name: str, output_dir: Path,
         _ms_range(segment["target_timerange_us"])
     canvas = report["canvas"]
     if render and (canvas["width"], canvas["height"]) not in RENDER_CANVASES:
-        raise ImportError("This canvas size is not supported by Tesseract 0.1.0 rendering; import without --render")
+        raise ImportError("This canvas size is not supported by Tesseract rendering; import without --render")
     executable = resolve_cli(cli)
+    engine_version = cli_version(executable)
     audio = [segment for segment in report["segments"] if segment["type"] == "audio"]
     probe = shutil.which("ffprobe") if audio else None
     needs_extract = any(Path(segment["path"]).suffix.lower() not in AUDIO_EXTENSIONS for segment in audio)
@@ -234,11 +247,11 @@ def import_project(project_dir: Path, timeline_name: str, output_dir: Path,
     document_path = output / "timeline.tsrct"
     report_path = output / "import-report.json"
     report.update({"status": "in_progress", "allow_lossy": bool(allow_lossy),
-                   "tesseract_version": CLI_VERSION, "document": str(document_path),
+                   "tesseract_version": engine_version, "document": str(document_path),
                    "report_path": str(report_path), "rendered": False,
                    "limitations": [
                        "Experimental one-way conversion; no CapCut export or round trip.",
-                       "Native audio source offsets have a known rendering limitation in Tesseract 0.1.0; audition any export.",
+                       "Native audio source offsets have a known rendering limitation in Tesseract 0.1.0 that is not yet ruled out in 0.2.0; audition any export.",
                        "Millisecond rounding applies to native layer boundaries; original microseconds remain in this report.",
                        "Output frame rate is engine controlled; source timeline fps is recorded, not guaranteed.",
                        "This conversion is not certified visually or audibly faithful to CapCut."]})

@@ -146,9 +146,39 @@ class TesseractTests(unittest.TestCase):
             tesseract.resolve_cli()
         with patch.object(tesseract.platform, "system", return_value="Darwin"), \
                 patch.object(tesseract.shutil, "which", return_value="fake-tsrct"), \
-                patch.object(tesseract, "_run", return_value="tsrct 0.2.0"), \
-                self.assertRaisesRegex(tesseract.ImportError, "requires Tesseract 0.1.0"):
+                patch.object(tesseract, "_run", return_value="tsrct 0.3.0 (abc)"), \
+                self.assertRaisesRegex(tesseract.ImportError, "requires Tesseract 0.2.0 or 0.1.0"):
             tesseract.resolve_cli()
+        for version in ("0.2.0", "0.1.0"):
+            with patch.object(tesseract.platform, "system", return_value="Darwin"), \
+                    patch.object(tesseract.shutil, "which", return_value="fake-tsrct"), \
+                    patch.object(tesseract, "_run", return_value=f"tsrct {version} (abc)"):
+                self.assertEqual(tesseract.resolve_cli(), "fake-tsrct")
+
+    def test_import_records_detected_engine_version(self):
+        original = self.engine.__call__
+
+        def newer(command):
+            return "tsrct 0.2.0 (abc)" if "--version" in command else original(command)
+        with patch.object(tesseract, "resolve_cli", return_value="fake-tsrct"), \
+                patch.object(tesseract, "_run", side_effect=newer):
+            report = tesseract.import_project(self.project, "First", self.output)
+        self.assertEqual(report["tesseract_version"], "0.2.0")
+
+    def test_windows_prefers_newest_supported_install(self):
+        base = self.root / "AppData" / "Tesseract"
+        older = base / "public-cli/0.1.0-x86_64/bin/tsrct.exe"
+        newer = base / "public-cli/0.2.0-x86_64/bin/tsrct.exe"
+        shim = base / "bin/tsrct.cmd"
+        for path in (older, newer, shim):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"synthetic file; never executed")
+        with patch.object(tesseract.platform, "system", return_value="Windows"), \
+                patch.dict(tesseract.os.environ, {"LOCALAPPDATA": str(base.parent)}), \
+                patch.object(tesseract.shutil, "which", return_value=str(shim)), \
+                patch.object(tesseract, "_run", return_value="tsrct 0.2.0") as run:
+            self.assertEqual(tesseract.resolve_cli(), str(newer.resolve()))
+        self.assertEqual(run.call_args.args[0], [str(newer.resolve()), "--version"])
 
     def test_render_is_explicit(self):
         self.assertTrue(self.run_import(render=True)["rendered"])

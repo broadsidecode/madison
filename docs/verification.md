@@ -40,6 +40,10 @@ The engine adds neutral transform fields and can trim trailing duration when app
 
 This smoke test did not render a movie. It does not establish audio export accuracy, visual fidelity for arbitrary CapCut projects, or macOS native engine compatibility. Unsupported features and the known native audio timing limitation remain documented in the [importer guide](experimental-importer.md).
 
+## Tesseract 0.2.0 check
+
+A separately installed Windows Tesseract 0.2.0 executable repeated both native checks with synthetic footage only. The CapCut import read back every authored layer field, rendered a six second 1920 by 1080 movie with the expected source moment, recorded version 0.2.0 in its report and left the source media hash unchanged. The editing smoke test removed, restored, trimmed and changed volume on a new native project, resumed the saved draft and left the original project unchanged. Tesseract 0.1.0 repeated the import check with the same result. Both versions read the same document format. The native audio timing limitation was not retested.
+
 ## Repeatable automation
 
 The repository's GitHub Actions workflow runs the Python suite, JavaScript syntax check and demo validation on Windows, macOS and Ubuntu with Python 3.10 and 3.13. Check the Actions tab for the result of the specific revision you use. Optional FFmpeg and symlink cases skip where their prerequisites are unavailable. Native Tesseract is not installed in CI; importer tests use a synthetic mocked engine.

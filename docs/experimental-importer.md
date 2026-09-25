@@ -12,8 +12,9 @@ original editor project and compare any result before using it for delivery.
 
 * Python 3.10 or later. Inspection uses only the Python standard library and
   works on Windows, macOS and Linux.
-* Conversion requires a separately installed Tesseract **0.1.0** CLI on a
-  supported Windows or macOS computer. Other versions fail the version gate.
+* Conversion requires a separately installed Tesseract **0.2.0** or **0.1.0**
+  CLI on a supported Windows or macOS computer. Other versions fail the version
+  gate. The import report records the version that was used.
 * Audio imports require `ffprobe` on PATH. Audio referenced from a video
   container also requires `ffmpeg` to extract a WAV into the new output.
 * The adapter does not install tools, accept licenses, download media, or make
@@ -25,7 +26,8 @@ installation you trust. This repository includes no editor engine, proprietary
 plugin instructions, or other third party executable.
 
 On Windows the standard installed `tsrct.cmd` shim is resolved to the existing
-native `public-cli/0.1.0-x86_64/bin/tsrct.exe` inside that installation. If PATH
+newest supported native `public-cli/<version>-x86_64/bin/tsrct.exe` inside that
+installation, 0.2.0 before 0.1.0. If PATH
 points to a batch launcher, the standard native executable is preferred when
 available. Other batch launchers are rejected: pass the actual `tsrct.exe` with
 `--tesseract`. Project and media filenames are never sent through a batch shell.
@@ -160,7 +162,8 @@ not usable footage.
 ## Rendering limitations
 
 Conversion does **not** render by default. `--render` opts into an additional
-native export. Tesseract 0.1.0 has a known native audio source-offset limitation;
+native export. Tesseract 0.1.0 has a known native audio source-offset limitation,
+not yet ruled out in 0.2.0;
 an exported mix may select the wrong source moment even when the editable
 layer's source range is correct. This adapter does not reconstruct a replacement
 audio mix. Audition audio and compare cut boundaries before relying on an export.

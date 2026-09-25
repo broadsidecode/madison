@@ -6,7 +6,7 @@ Madison can make a small set of real edits to a connected Tesseract project. Rev
 
 Prepare a review bundle from the same Tesseract project revision as its rendered movie. Every clip you want to edit needs its native `layerId`, clip ID, picture or audio lane, source range and timeline range in the [bundle data](manifest.md). The agent preparing the bundle should check those values against a fresh Tesseract checkout. A movie with only one generic full length clip is useful for review, but does not provide the individual native clip references needed here.
 
-Start the viewer with the separately installed Tesseract 0.1.0 engine and the editable document:
+Start the viewer with the separately installed Tesseract 0.2.0 or 0.1.0 engine and the editable document:
 
 ```sh
 python -m timeline_reviewer serve "../my-review" --editable-project "../my-edit.tsrct" --open
@@ -24,7 +24,7 @@ Select a clip. Choose **Remove clip**, set a narrower start and end, or set its 
 
 Choose **Apply changes** once the batch looks right. Madison saves a new versioned editable Tesseract project beside the selected project. It keeps the previous project intact. The page reports where the new project was saved, and the agent can continue from that version.
 
-The existing rendered movie is not silently presented as the edited picture. When an approved source file is available, Madison shows an approximate draft picture for the active clip. Tesseract effects and the changed soundtrack remain pending until a fresh render is prepared. Tesseract 0.1.0 can preview single frames, but has no native command for exporting only a short range. Save several simple edits together, then make the full final export when the cut is ready.
+The existing rendered movie is not silently presented as the edited picture. When an approved source file is available, Madison shows an approximate draft picture for the active clip. Tesseract effects and the changed soundtrack remain pending until a fresh render is prepared. Tesseract can preview single frames, but has no native command for exporting only a short range. Save several simple edits together, then make the full final export when the cut is ready.
 
 Draft operations and the current version reference are saved in a local private sidecar. They are never included in the public repository or served as review media. The edit connection is opt in and accepts changes only from the local Madison page. Other processes on the same computer can access loopback services, so use the same local privacy care as with ordinary review bundles.
 
