@@ -14,6 +14,7 @@ import threading
 import time
 from datetime import datetime, timezone
 
+from .engine import engine_status, public_status as public_engine_status
 from .identity import capture_runtime_identity, source_drift
 from .manifest import load_manifest, asset_files
 
@@ -33,7 +34,7 @@ class LocalServer(ThreadingHTTPServer):
 
 
 def make_server(bundle, port=8765, edit_session=None, capcut_sync=None,
-                runtime_identity=None, shutdown_token=None):
+                runtime_identity=None, shutdown_token=None, engine_checker=None):
     if isinstance(port, bool) or not isinstance(port, int) or not 0 <= port <= 65535:
         raise ValueError('Port must be an integer from 0 to 65535.')
     bundle = Path(bundle).resolve()
@@ -92,6 +93,21 @@ def make_server(bundle, port=8765, edit_session=None, capcut_sync=None,
              '/styles.css': ('styles', 'text/css; charset=utf-8')}
     browser_lock = threading.Lock()
     browser_clients = {}
+    engine_lock = threading.Lock()
+    engine_state = {'value': None}
+    engine_cli = getattr(edit_session, 'cli', None) or getattr(capcut_sync, 'cli', None)
+
+    def check_engine():
+        # Runs once per server start, off the request path. Failures stay
+        # "not verified"; the viewer never waits on the network or the engine.
+        try:
+            value = (engine_checker or (lambda: engine_status(engine_cli)))()
+        except Exception:
+            value = {'state': 'not_verified'}
+        with engine_lock:
+            engine_state['value'] = value
+
+    threading.Thread(target=check_engine, name='madison-engine-status', daemon=True).start()
 
     def browser_snapshot():
         now = time.monotonic()
@@ -206,6 +222,8 @@ def make_server(bundle, port=8765, edit_session=None, capcut_sync=None,
             github_status = 'not_verified'
         browser = browser_snapshot()
         current, _ = current_bundle()
+        with engine_lock:
+            tesseract = public_engine_status(engine_state['value'])
         public_github = {'status': github_status,
                          'checkedAt': github.get('checkedAt') if isinstance(github.get('checkedAt'), str) else None}
         for key in ('mainMatches', 'releaseMatches'):
@@ -226,6 +244,7 @@ def make_server(bundle, port=8765, edit_session=None, capcut_sync=None,
             'activity': activity_state(),
             'assets': dict(asset_hashes),
             'github': public_github,
+            'tesseract': tesseract,
             'browser': browser,
         }
 

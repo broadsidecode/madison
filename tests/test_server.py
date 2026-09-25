@@ -19,6 +19,10 @@ class ServerTests(unittest.TestCase):
                                           'checkedAt': '2026-09-23T12:00:00Z'})
         self.github.start()
         self.addCleanup(self.github.stop)
+        self.engine = patch('timeline_reviewer.server.engine_status',
+                            return_value={'state': 'not_verified', 'installed': None})
+        self.engine.start()
+        self.addCleanup(self.engine.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         (self.root / 'media').mkdir()
@@ -33,6 +37,44 @@ class ServerTests(unittest.TestCase):
     def tearDown(self):
         self.server.shutdown(); self.server.server_close(); self.thread.join(timeout=2)
         self.temp.cleanup()
+
+    def test_runtime_status_reports_sanitized_engine_state(self):
+        self.server.shutdown(); self.server.server_close(); self.thread.join(timeout=2)
+        done = threading.Event()
+
+        def checker():
+            done.set()
+            return {'state': 'madison_update', 'installed': '0.2.0', 'official': '9.9.9',
+                    'checkedAt': '2026-09-24T12:00:00Z', 'path': 'private-location'}
+        self.server = make_server(self.root, 0, engine_checker=checker)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.assertTrue(done.wait(2))
+        for _ in range(50):
+            engine = json.loads(self.request('/runtime-status')[2])['tesseract']
+            if engine['state'] != 'checking':
+                break
+            threading.Event().wait(.02)
+        self.assertEqual(engine['state'], 'madison_update')
+        self.assertTrue(engine['attention'])
+        self.assertEqual(engine['official'], '9.9.9')
+        self.assertNotIn('path', engine)
+
+    def test_engine_checker_failure_is_not_verified(self):
+        self.server.shutdown(); self.server.server_close(); self.thread.join(timeout=2)
+
+        def checker():
+            raise RuntimeError('offline')
+        self.server = make_server(self.root, 0, engine_checker=checker)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        for _ in range(50):
+            engine = json.loads(self.request('/runtime-status')[2])['tesseract']
+            if engine['state'] != 'checking':
+                break
+            threading.Event().wait(.02)
+        self.assertEqual(engine['state'], 'not_verified')
+        self.assertFalse(engine['attention'])
 
     def request(self, path='/', method='GET', headers=None):
         connection = http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=3)

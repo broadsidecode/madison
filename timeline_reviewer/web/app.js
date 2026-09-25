@@ -80,6 +80,33 @@
     return Number.isNaN(date.getTime()) ? 'not verified' : date.toLocaleString();
   }
 
+  function engineText(engine) {
+    const supported = (engine?.supported || []).join(' or ');
+    const installed = engine?.installed;
+    const official = engine?.official;
+    switch (engine?.state) {
+      case 'current': return `Tesseract ${installed}: current`;
+      case 'engine_update': return `Tesseract ${installed} works. Mirage now ships ${official}.`;
+      case 'madison_update': return `Tesseract ${official} is out. This Madison supports ${supported}. Update Madison.`;
+      case 'engine_unsupported': return `Tesseract ${installed} is not supported here. Install ${supported}.`;
+      case 'not_found': return official ? `Tesseract not found. Review works without it. Mirage ships ${official}.` : 'Tesseract not found. Review works without it.';
+      case 'not_verified': return `Tesseract ${installed}: latest version not verified`;
+      default: return 'Tesseract: checking';
+    }
+  }
+
+  function showEngineStatus(engine) {
+    const line = $('runtime-tesseract');
+    if (!line) return;
+    const attention = Boolean(engine?.attention);
+    line.textContent = engineText(engine);
+    line.className = attention ? 'runtime-warning' : '';
+    const panel = document.querySelector('.runtime-panel');
+    if (panel) panel.dataset.engine = attention ? 'attention' : engine?.state === 'engine_update' ? 'info' : 'ok';
+    if (attention) $('runtime-summary').textContent += ' · Update needed';
+    $('runtime-summary').title = line.textContent;
+  }
+
   async function updateRuntimeStatus() {
     if (!runtimePage.buildId || !runtimePage.instanceId) return;
     const unappliedEdits = Boolean(editState?.operations?.length);
@@ -104,6 +131,7 @@
       $('runtime-source').textContent = `${changed} · Started ${checkedTime(status.startedAt)}`;
       const github = status.github?.status === 'not_verified' ? 'not verified' : status.github?.status;
       $('runtime-github').textContent = `GitHub: ${github} · Checked ${checkedTime(status.github?.checkedAt)}`;
+      showEngineStatus(status.tesseract);
       const warning = $('runtime-warning');
       if (stale) warning.textContent = 'This Madison page is stale. Reload it to use the running version.';
       else if (status.source?.drift) warning.textContent = 'Local code changed after Madison started. Restart Madison to load it.';

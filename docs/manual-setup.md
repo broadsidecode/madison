@@ -45,6 +45,7 @@ The older `demo` and `serve` commands remain available for contributors who need
 - Press **I** and **O** to mark a feedback range. Loop it while reviewing.
 - Write a note and choose the copy icon in **Clip details**, then paste the feedback into your editor or agent conversation.
 - Keep inactive alternatives out of the main view with **Show parked takes**.
+- Open the version label at the top right to see the Madison build, GitHub status and Tesseract status. An amber dot means an update is needed: either Mirage has released a Tesseract version this Madison does not support yet, or the installed engine is not supported. A blue dot means a newer Tesseract is available and the installed one still works.
 
 Notes and marked ranges survive a reload in the current browser tab. Copy them before closing the tab if you want to keep them elsewhere. Frame stepping seeks according to the manifest frame rate; it is a review aid, not a frame accurate editing engine.
 
@@ -110,7 +111,7 @@ Tesseract is supplied by Mirage under its own terms. Its binaries, skills and ve
 
 ## Local access and privacy
 
-The server binds only to IPv4 loopback. Review only mode exposes the application files and media referenced by a validated manifest and rejects writes. The optional editing mode accepts a small set of local clip operations, serves approved source video from selected local folders, and saves a new native project version. Optional CapCut sync binds one named local source when the server starts and creates versioned output without changing that source. None of these modes has an upload endpoint or analytics integration.
+The server binds only to IPv4 loopback. Review only mode exposes the application files and media referenced by a validated manifest and rejects writes. The optional editing mode accepts a small set of local clip operations, serves approved source video from selected local folders, and saves a new native project version. Optional CapCut sync binds one named local source when the server starts and creates versioned output without changing that source. None of these modes has an upload endpoint or analytics integration. At startup Madison reads two public version records: its own latest release on GitHub and the Tesseract version pinned in Mirage's official instructions. It sends nothing about your project, and an offline check shows as not verified.
 
 Other processes on your computer can access a running loopback server. Stop it when finished. Do not expose the port through a proxy or tunnel for confidential work. Copied feedback includes the manifest's clip labels and revision information; review it before sharing.
 

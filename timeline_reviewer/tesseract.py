@@ -67,16 +67,23 @@ def _json_run(command: list[str]) -> dict:
     return result
 
 
+def parse_version(text: str) -> str | None:
+    """Return the single semantic version in CLI output, or None when ambiguous."""
+    versions = re.findall(r"(?<![\d.])\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?(?![\d.])", text)
+    return versions[0] if len(versions) == 1 else None
+
+
 def cli_version(executable: str) -> str:
     """Return the selected CLI's version, refusing any version not verified here."""
     version = _run([executable, "--version"])
-    versions = re.findall(r"(?<![\d.])\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?(?![\d.])", version)
-    if len(versions) != 1 or versions[0] not in SUPPORTED_CLI_VERSIONS:
+    parsed = parse_version(version)
+    if parsed not in SUPPORTED_CLI_VERSIONS:
         raise ImportError(f"This adapter requires Tesseract {SUPPORTED_TEXT}; the selected CLI reports {version!r}.")
-    return versions[0]
+    return parsed
 
 
-def resolve_cli(cli: str | None = None) -> str:
+def locate_cli(cli: str | None = None) -> str:
+    """Find the native executable without checking its version."""
     system = platform.system()
     if system not in ("Windows", "Darwin"):
         raise ImportError("Tesseract import supports Windows and macOS only; CapCut inspection works on this host.")
@@ -110,6 +117,11 @@ def resolve_cli(cli: str | None = None) -> str:
             resolved = str(windows_native.resolve())
         else:
             raise ImportError("Windows batch launchers are not supported. Pass the actual native tsrct.exe using --tesseract; the launcher was not executed.")
+    return resolved
+
+
+def resolve_cli(cli: str | None = None) -> str:
+    resolved = locate_cli(cli)
     cli_version(resolved)
     return resolved
 
